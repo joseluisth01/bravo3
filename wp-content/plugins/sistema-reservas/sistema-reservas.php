@@ -38,22 +38,37 @@ class SistemaReservas
         add_action('template_redirect', array($this, 'template_redirect'));
 
         add_action('wp_ajax_get_calendar_data', array($this, 'get_calendar_data'));
-    add_action('wp_ajax_save_service', array($this, 'save_service'));
-    add_action('wp_ajax_delete_service', array($this, 'delete_service'));
-    add_action('wp_ajax_get_service_details', array($this, 'get_service_details'));
-    add_action('wp_ajax_bulk_add_services', array($this, 'bulk_add_services'));
+        add_action('wp_ajax_save_service', array($this, 'save_service'));
+        add_action('wp_ajax_delete_service', array($this, 'delete_service'));
+        add_action('wp_ajax_get_service_details', array($this, 'get_service_details'));
+        add_action('wp_ajax_bulk_add_services', array($this, 'bulk_add_services'));
     }
 
 
 public function get_calendar_data() {
-    // Debug básico
-    error_log('get_calendar_data ejecutándose');
+    // Limpiar cualquier output buffer
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    
+    // Headers para JSON
+    header('Content-Type: application/json');
     
     try {
+        // Log básico
+        error_log('=== INICIO get_calendar_data ===');
+        
         // Verificar nonce
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
-            wp_send_json_error('Error de seguridad');
-            return;
+        if (!isset($_POST['nonce'])) {
+            error_log('ERROR: Nonce no encontrado');
+            wp_send_json_error('Nonce no encontrado');
+            exit;
+        }
+        
+        if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+            error_log('ERROR: Nonce inválido');
+            wp_send_json_error('Nonce inválido');
+            exit;
         }
         
         // Verificar sesión
@@ -62,64 +77,41 @@ public function get_calendar_data() {
         }
         
         if (!isset($_SESSION['reservas_user'])) {
+            error_log('ERROR: Usuario no logueado');
             wp_send_json_error('Usuario no logueado');
-            return;
+            exit;
         }
         
-        // Verificar permisos
-        if ($_SESSION['reservas_user']['role'] !== 'super_admin') {
-            wp_send_json_error('Sin permisos');
-            return;
-        }
+        // Por ahora, devolver datos de prueba
+        $calendar_data = array(
+            '2025-07-15' => array(
+                array(
+                    'id' => 1,
+                    'hora' => '10:00',
+                    'plazas_totales' => 50,
+                    'fecha' => '2025-07-15'
+                )
+            ),
+            '2025-07-20' => array(
+                array(
+                    'id' => 2,
+                    'hora' => '14:00',
+                    'plazas_totales' => 40,
+                    'fecha' => '2025-07-20'
+                )
+            )
+        );
         
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'reservas_servicios';
+        error_log('=== ENVIANDO RESPUESTA ===');
+        error_log('Datos: ' . json_encode($calendar_data));
         
-        // Verificar que la tabla existe
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
-        if (!$table_exists) {
-            error_log("Tabla $table_name no existe");
-            wp_send_json_error('Tabla no existe');
-            return;
-        }
-        
-        $month = isset($_POST['month']) ? intval($_POST['month']) : date('n');
-        $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
-        
-        $start_date = "$year-$month-01";
-        $end_date = date('Y-m-t', strtotime($start_date));
-        
-        error_log("Buscando servicios entre $start_date y $end_date");
-        
-        $servicios = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE fecha BETWEEN %s AND %s ORDER BY fecha, hora",
-            $start_date,
-            $end_date
-        ));
-        
-        if ($wpdb->last_error) {
-            error_log('Error SQL: ' . $wpdb->last_error);
-            wp_send_json_error('Error SQL: ' . $wpdb->last_error);
-            return;
-        }
-        
-        $calendar_data = array();
-        if ($servicios) {
-            foreach ($servicios as $servicio) {
-                $date_key = $servicio->fecha;
-                if (!isset($calendar_data[$date_key])) {
-                    $calendar_data[$date_key] = array();
-                }
-                $calendar_data[$date_key][] = $servicio;
-            }
-        }
-        
-        error_log('Servicios encontrados: ' . count($servicios));
         wp_send_json_success($calendar_data);
+        exit;
         
     } catch (Exception $e) {
-        error_log('Error en get_calendar_data: ' . $e->getMessage());
-        wp_send_json_error('Error interno: ' . $e->getMessage());
+        error_log('ERROR EXCEPTION: ' . $e->getMessage());
+        wp_send_json_error('Error: ' . $e->getMessage());
+        exit;
     }
 }
 
@@ -345,28 +337,23 @@ public function get_calendar_data() {
         'includes/class-database.php',
         'includes/class-auth.php',
         'includes/class-admin.php',
-        'includes/class-reservas.php'
+        // 'includes/class-reservas.php'  // Comentar temporalmente
     );
     
     foreach ($files as $file) {
         $path = RESERVAS_PLUGIN_PATH . $file;
         if (file_exists($path)) {
             require_once $path;
-        } else {
-            error_log("Archivo faltante: $path");
         }
     }
     
-    // Inicializar clases
+    // Inicializar solo lo esencial
     if (class_exists('ReservasAuth')) {
         new ReservasAuth();
     }
-    if (class_exists('ReservasAdmin')) {
-        new ReservasAdmin();
-    }
-    if (class_exists('ReservasReservas')) {
-        new ReservasReservas();
-    }
+    // if (class_exists('ReservasAdmin')) {
+    //     new ReservasAdmin();  // Comentar temporalmente
+    // }
 }
 
     public function add_rewrite_rules()
@@ -622,452 +609,513 @@ public function get_calendar_data() {
         }
     }
 
-// REEMPLAZA la parte del dashboard donde está el script por esto:
+    // REEMPLAZA la parte del dashboard donde está el script por esto:
 
-private function show_dashboard() {
-    // Verificar si el usuario está logueado
-    if (!session_id()) {
-        session_start();
-    }
+    private function show_dashboard()
+    {
+        // Verificar si el usuario está logueado
+        if (!session_id()) {
+            session_start();
+        }
 
-    if (!isset($_SESSION['reservas_user'])) {
-        wp_redirect(home_url('/reservas-login/?error=access'));
-        exit;
-    }
+        if (!isset($_SESSION['reservas_user'])) {
+            wp_redirect(home_url('/reservas-login/?error=access'));
+            exit;
+        }
 
-    $user = $_SESSION['reservas_user'];
-    $nonce = wp_create_nonce('reservas_nonce');
-    $ajax_url = admin_url('admin-ajax.php');
+        $user = $_SESSION['reservas_user'];
+        $nonce = wp_create_nonce('reservas_nonce');
+        $ajax_url = admin_url('admin-ajax.php');
 
     ?>
-    <!DOCTYPE html>
-    <html <?php language_attributes(); ?>>
-    <head>
-        <meta charset="<?php bloginfo('charset'); ?>">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Sistema de Reservas - Dashboard</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                margin: 0;
-                background: #f1f1f1;
-                color: #333;
-            }
-            .dashboard-header {
-                background: #23282d;
-                color: white;
-                padding: 15px 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .dashboard-header h1 {
-                margin: 0;
-                font-size: 24px;
-            }
-            .user-info {
-                display: flex;
-                align-items: center;
-                gap: 15px;
-            }
-            .user-role {
-                background: #0073aa;
-                padding: 4px 8px;
-                border-radius: 3px;
-                font-size: 12px;
-                text-transform: uppercase;
-            }
-            .btn-logout {
-                background: #d63638;
-                color: white;
-                padding: 8px 15px;
-                text-decoration: none;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-            .btn-logout:hover {
-                background: #b32d2e;
-            }
-            .dashboard-content {
-                max-width: 1200px;
-                margin: 20px auto;
-                padding: 0 20px;
-            }
-            .welcome-card {
-                background: white;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-bottom: 20px;
-            }
-            .stats-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 20px;
-                margin-top: 20px;
-            }
-            .stat-card {
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-            }
-            .stat-number {
-                font-size: 32px;
-                font-weight: bold;
-                color: #0073aa;
-                margin: 10px 0;
-            }
-            .status-active {
-                color: #00a32a;
-                font-weight: bold;
-            }
-            .next-steps {
-                background: white;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-top: 20px;
-            }
-            .next-steps ul {
-                list-style-type: none;
-                padding: 0;
-            }
-            .next-steps li {
-                padding: 10px 0;
-                border-bottom: 1px solid #eee;
-            }
-            .next-steps li:before {
-                content: "▶ ";
-                color: #0073aa;
-                font-weight: bold;
-            }
-            .menu-actions {
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-top: 20px;
-            }
-            .menu-actions h3 {
-                margin-top: 0;
-                color: #23282d;
-            }
-            .action-buttons {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 15px;
-            }
-            .action-btn {
-                display: block;
-                padding: 15px;
-                background: #0073aa;
-                color: white;
-                text-decoration: none;
-                border-radius: 4px;
-                text-align: center;
-                font-weight: 600;
-                transition: background 0.3s;
-                border: none;
-                cursor: pointer;
-            }
-            .action-btn:hover {
-                background: #005a87;
-                color: white;
-            }
-            .action-btn:visited {
-                color: white;
-            }
-            
-            /* Estilos para el calendario */
-            .calendar-management {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                padding: 20px;
-                background: #f1f1f1;
-                min-height: 100vh;
-            }
-            .calendar-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 30px;
-                padding: 20px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .calendar-header h1 {
-                margin: 0;
-                color: #23282d;
-            }
-            .calendar-actions {
-                display: flex;
-                gap: 10px;
-            }
-            .btn-primary, .btn-secondary {
-                padding: 10px 20px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: 600;
-            }
-            .btn-primary {
-                background: #0073aa;
-                color: white;
-            }
-            .btn-secondary {
-                background: #6c757d;
-                color: white;
-            }
-            .calendar-controls {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                gap: 20px;
-                margin-bottom: 20px;
-                padding: 15px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .calendar-controls button {
-                padding: 8px 16px;
-                background: #0073aa;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            .calendar-controls button:hover {
-                background: #005a87;
-            }
-            #currentMonth {
-                font-size: 18px;
-                font-weight: bold;
-                color: #23282d;
-            }
-            .calendar-grid {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 1px;
-                background: #ddd;
-                border-radius: 8px;
-                overflow: hidden;
-            }
-            .calendar-header-day {
-                background: #23282d;
-                color: white;
-                padding: 15px;
-                text-align: center;
-                font-weight: bold;
-            }
-            .calendar-day {
-                background: white;
-                min-height: 120px;
-                padding: 10px;
-                position: relative;
-                cursor: pointer;
-                transition: background 0.2s;
-            }
-            .calendar-day:hover {
-                background: #f8f9fa;
-            }
-            .calendar-day.other-month {
-                background: #f8f9fa;
-                color: #999;
-            }
-            .calendar-day.today {
-                background: #e3f2fd;
-                border: 2px solid #0073aa;
-            }
-            .day-number {
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-            .service-item {
-                background: #0073aa;
-                color: white;
-                padding: 2px 6px;
-                margin: 2px 0;
-                border-radius: 3px;
-                font-size: 11px;
-                cursor: pointer;
-            }
-            .service-item:hover {
-                background: #005a87;
-            }
-            .loading {
-                text-align: center;
-                padding: 40px;
-                color: #666;
-            }
-            /* Modales */
-            .modal {
-                display: none;
-                position: fixed;
-                z-index: 1000;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0,0,0,0.5);
-            }
-            .modal-content {
-                background-color: white;
-                margin: 5% auto;
-                padding: 20px;
-                border-radius: 8px;
-                width: 90%;
-                max-width: 600px;
-                position: relative;
-            }
-            .close {
-                position: absolute;
-                top: 10px;
-                right: 15px;
-                font-size: 24px;
-                cursor: pointer;
-            }
-            .form-group {
-                margin-bottom: 15px;
-            }
-            .form-group label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: 600;
-            }
-            .form-group input,
-            .form-group select {
-                width: 100%;
-                padding: 8px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                box-sizing: border-box;
-            }
-            .form-row {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 15px;
-            }
-            .form-actions {
-                display: flex;
-                gap: 10px;
-                margin-top: 20px;
-            }
-            .horarios-list {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 10px;
-                max-height: 200px;
-                overflow-y: auto;
-            }
-            .horario-item {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 5px 0;
-                border-bottom: 1px solid #eee;
-            }
-            .horario-item:last-child {
-                border-bottom: none;
-            }
-            .btn-small {
-                padding: 4px 8px;
-                font-size: 12px;
-                border: none;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-            .btn-danger {
-                background: #d63638;
-                color: white;
-            }
-            .dias-semana {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 5px;
-                margin-top: 10px;
-            }
-            .dia-checkbox {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="dashboard-header">
-            <h1>Sistema de Reservas</h1>
-            <div class="user-info">
-                <span>Bienvenido, <?php echo esc_html($user['username']); ?></span>
-                <span class="user-role"><?php echo esc_html($user['role']); ?></span>
-                <a href="<?php echo home_url('/reservas-login/?logout=1'); ?>" class="btn-logout">Cerrar Sesión</a>
-            </div>
-        </div>
-        
-        <div class="dashboard-content">
-            <div class="welcome-card">
-                <h2>Dashboard Principal</h2>
-                <p class="status-active">✅ El sistema está funcionando correctamente</p>
-                <p>Has iniciado sesión correctamente en el sistema de reservas.</p>
-            </div>
-            
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Estado del Sistema</h3>
-                    <div class="stat-number">✓</div>
-                    <p>Operativo</p>
+        <!DOCTYPE html>
+        <html <?php language_attributes(); ?>>
+
+        <head>
+            <meta charset="<?php bloginfo('charset'); ?>">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Sistema de Reservas - Dashboard</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    margin: 0;
+                    background: #f1f1f1;
+                    color: #333;
+                }
+
+                .dashboard-header {
+                    background: #23282d;
+                    color: white;
+                    padding: 15px 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .dashboard-header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                }
+
+                .user-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                }
+
+                .user-role {
+                    background: #0073aa;
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                }
+
+                .btn-logout {
+                    background: #d63638;
+                    color: white;
+                    padding: 8px 15px;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-size: 14px;
+                }
+
+                .btn-logout:hover {
+                    background: #b32d2e;
+                }
+
+                .dashboard-content {
+                    max-width: 1200px;
+                    margin: 20px auto;
+                    padding: 0 20px;
+                }
+
+                .welcome-card {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    margin-bottom: 20px;
+                }
+
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+
+                .stat-card {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                }
+
+                .stat-number {
+                    font-size: 32px;
+                    font-weight: bold;
+                    color: #0073aa;
+                    margin: 10px 0;
+                }
+
+                .status-active {
+                    color: #00a32a;
+                    font-weight: bold;
+                }
+
+                .next-steps {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    margin-top: 20px;
+                }
+
+                .next-steps ul {
+                    list-style-type: none;
+                    padding: 0;
+                }
+
+                .next-steps li {
+                    padding: 10px 0;
+                    border-bottom: 1px solid #eee;
+                }
+
+                .next-steps li:before {
+                    content: "▶ ";
+                    color: #0073aa;
+                    font-weight: bold;
+                }
+
+                .menu-actions {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    margin-top: 20px;
+                }
+
+                .menu-actions h3 {
+                    margin-top: 0;
+                    color: #23282d;
+                }
+
+                .action-buttons {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 15px;
+                }
+
+                .action-btn {
+                    display: block;
+                    padding: 15px;
+                    background: #0073aa;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    text-align: center;
+                    font-weight: 600;
+                    transition: background 0.3s;
+                    border: none;
+                    cursor: pointer;
+                }
+
+                .action-btn:hover {
+                    background: #005a87;
+                    color: white;
+                }
+
+                .action-btn:visited {
+                    color: white;
+                }
+
+                /* Estilos para el calendario */
+                .calendar-management {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    padding: 20px;
+                    background: #f1f1f1;
+                    min-height: 100vh;
+                }
+
+                .calendar-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 30px;
+                    padding: 20px;
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                }
+
+                .calendar-header h1 {
+                    margin: 0;
+                    color: #23282d;
+                }
+
+                .calendar-actions {
+                    display: flex;
+                    gap: 10px;
+                }
+
+                .btn-primary,
+                .btn-secondary {
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: 600;
+                }
+
+                .btn-primary {
+                    background: #0073aa;
+                    color: white;
+                }
+
+                .btn-secondary {
+                    background: #6c757d;
+                    color: white;
+                }
+
+                .calendar-controls {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                }
+
+                .calendar-controls button {
+                    padding: 8px 16px;
+                    background: #0073aa;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+
+                .calendar-controls button:hover {
+                    background: #005a87;
+                }
+
+                #currentMonth {
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #23282d;
+                }
+
+                .calendar-grid {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 1px;
+                    background: #ddd;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+
+                .calendar-header-day {
+                    background: #23282d;
+                    color: white;
+                    padding: 15px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+
+                .calendar-day {
+                    background: white;
+                    min-height: 120px;
+                    padding: 10px;
+                    position: relative;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                }
+
+                .calendar-day:hover {
+                    background: #f8f9fa;
+                }
+
+                .calendar-day.other-month {
+                    background: #f8f9fa;
+                    color: #999;
+                }
+
+                .calendar-day.today {
+                    background: #e3f2fd;
+                    border: 2px solid #0073aa;
+                }
+
+                .day-number {
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+
+                .service-item {
+                    background: #0073aa;
+                    color: white;
+                    padding: 2px 6px;
+                    margin: 2px 0;
+                    border-radius: 3px;
+                    font-size: 11px;
+                    cursor: pointer;
+                }
+
+                .service-item:hover {
+                    background: #005a87;
+                }
+
+                .loading {
+                    text-align: center;
+                    padding: 40px;
+                    color: #666;
+                }
+
+                /* Modales */
+                .modal {
+                    display: none;
+                    position: fixed;
+                    z-index: 1000;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                }
+
+                .modal-content {
+                    background-color: white;
+                    margin: 5% auto;
+                    padding: 20px;
+                    border-radius: 8px;
+                    width: 90%;
+                    max-width: 600px;
+                    position: relative;
+                }
+
+                .close {
+                    position: absolute;
+                    top: 10px;
+                    right: 15px;
+                    font-size: 24px;
+                    cursor: pointer;
+                }
+
+                .form-group {
+                    margin-bottom: 15px;
+                }
+
+                .form-group label {
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: 600;
+                }
+
+                .form-group input,
+                .form-group select {
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                }
+
+                .form-row {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 15px;
+                }
+
+                .form-actions {
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 20px;
+                }
+
+                .horarios-list {
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    padding: 10px;
+                    max-height: 200px;
+                    overflow-y: auto;
+                }
+
+                .horario-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px 0;
+                    border-bottom: 1px solid #eee;
+                }
+
+                .horario-item:last-child {
+                    border-bottom: none;
+                }
+
+                .btn-small {
+                    padding: 4px 8px;
+                    font-size: 12px;
+                    border: none;
+                    border-radius: 3px;
+                    cursor: pointer;
+                }
+
+                .btn-danger {
+                    background: #d63638;
+                    color: white;
+                }
+
+                .dias-semana {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 5px;
+                    margin-top: 10px;
+                }
+
+                .dia-checkbox {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                }
+            </style>
+        </head>
+
+        <body>
+            <div class="dashboard-header">
+                <h1>Sistema de Reservas</h1>
+                <div class="user-info">
+                    <span>Bienvenido, <?php echo esc_html($user['username']); ?></span>
+                    <span class="user-role"><?php echo esc_html($user['role']); ?></span>
+                    <a href="<?php echo home_url('/reservas-login/?logout=1'); ?>" class="btn-logout">Cerrar Sesión</a>
                 </div>
-                <div class="stat-card">
-                    <h3>Tu Rol</h3>
-                    <div class="stat-number"><?php echo strtoupper($user['role']); ?></div>
-                    <p>Nivel de acceso</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Versión</h3>
-                    <div class="stat-number">1.0</div>
-                    <p>Sistema base</p>
-                </div>
             </div>
-            
-            <?php if ($user['role'] === 'super_admin'): ?>
-                <div class="menu-actions">
-                    <h3>Acciones Disponibles</h3>
-                    <div class="action-buttons">
-                        <button class="action-btn" onclick="alert('Función en desarrollo')">👥 Gestionar Usuarios</button>
-                        <button class="action-btn" onclick="loadCalendarSection()">📅 Gestionar Calendario</button>
-                        <button class="action-btn" onclick="alert('Función en desarrollo')">🎫 Ver Reservas</button>
-                        <button class="action-btn" onclick="alert('Función en desarrollo')">⚙️ Configuración</button>
-                        <button class="action-btn" onclick="alert('Función en desarrollo')">📊 Informes</button>
-                        <button class="action-btn" onclick="alert('Función en desarrollo')">🏢 Gestionar Agencias</button>
+
+            <div class="dashboard-content">
+                <div class="welcome-card">
+                    <h2>Dashboard Principal</h2>
+                    <p class="status-active">✅ El sistema está funcionando correctamente</p>
+                    <p>Has iniciado sesión correctamente en el sistema de reservas.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Estado del Sistema</h3>
+                        <div class="stat-number">✓</div>
+                        <p>Operativo</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Tu Rol</h3>
+                        <div class="stat-number"><?php echo strtoupper($user['role']); ?></div>
+                        <p>Nivel de acceso</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Versión</h3>
+                        <div class="stat-number">1.0</div>
+                        <p>Sistema base</p>
                     </div>
                 </div>
-            <?php endif; ?>
-            
-            <div class="next-steps">
-                <h3>Próximos Pasos de Desarrollo</h3>
-                <ul>
-                    <li>Implementar gestión de usuarios completa</li>
-                    <li>Crear sistema de calendario y horarios</li>
-                    <li>Desarrollar sistema de reservas</li>
-                    <li>Integrar métodos de pago</li>
-                    <li>Crear generación de PDFs y códigos QR</li>
-                    <li>Implementar sistema de informes</li>
-                </ul>
+
+                <?php if ($user['role'] === 'super_admin'): ?>
+                    <div class="menu-actions">
+                        <h3>Acciones Disponibles</h3>
+                        <div class="action-buttons">
+                            <button class="action-btn" onclick="alert('Función en desarrollo')">👥 Gestionar Usuarios</button>
+                            <button class="action-btn" onclick="loadCalendarSection()">📅 Gestionar Calendario</button>
+                            <button class="action-btn" onclick="alert('Función en desarrollo')">🎫 Ver Reservas</button>
+                            <button class="action-btn" onclick="alert('Función en desarrollo')">⚙️ Configuración</button>
+                            <button class="action-btn" onclick="alert('Función en desarrollo')">📊 Informes</button>
+                            <button class="action-btn" onclick="alert('Función en desarrollo')">🏢 Gestionar Agencias</button>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="next-steps">
+                    <h3>Próximos Pasos de Desarrollo</h3>
+                    <ul>
+                        <li>Implementar gestión de usuarios completa</li>
+                        <li>Crear sistema de calendario y horarios</li>
+                        <li>Desarrollar sistema de reservas</li>
+                        <li>Integrar métodos de pago</li>
+                        <li>Crear generación de PDFs y códigos QR</li>
+                        <li>Implementar sistema de informes</li>
+                    </ul>
+                </div>
             </div>
-        </div>
-        
-        <script>
-        // Variables globales
-        const ajaxUrl = '<?php echo $ajax_url; ?>';
-        const nonce = '<?php echo $nonce; ?>';
-        let currentDate = new Date();
-        let servicesData = {};
-        let bulkHorarios = [];
-        
-        function loadCalendarSection() {
-            document.body.innerHTML = `
+
+            <script>
+                // Variables globales
+                const ajaxUrl = '<?php echo $ajax_url; ?>';
+                const nonce = '<?php echo $nonce; ?>';
+                let currentDate = new Date();
+                let servicesData = {};
+                let bulkHorarios = [];
+
+                function loadCalendarSection() {
+                    document.body.innerHTML = `
                 <div class="calendar-management">
                     <div class="calendar-header">
                         <h1>Gestión de Calendario</h1>
@@ -1088,36 +1136,34 @@ private function show_dashboard() {
                     </div>
                 </div>
             `;
-            
-            // Inicializar el calendario
-            initCalendar();
-        }
-        
-        function initCalendar() {
-            updateCalendarDisplay();
-            loadCalendarData();
-        }
-        
-        function updateCalendarDisplay() {
-            const monthNames = [
-                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-            ];
-            
-            document.getElementById('currentMonth').textContent = 
-                monthNames[currentDate.getMonth()] + ' ' + currentDate.getFullYear();
-        }
-        
-        function changeMonth(direction) {
-            currentDate.setMonth(currentDate.getMonth() + direction);
-            updateCalendarDisplay();
-            loadCalendarData();
-        }
-        
-        function loadCalendarData() {
+
+                    // Inicializar el calendario
+                    initCalendar();
+                }
+
+                function initCalendar() {
+                    updateCalendarDisplay();
+                    loadCalendarData();
+                }
+
+                function updateCalendarDisplay() {
+                    const monthNames = [
+                        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                    ];
+
+                    document.getElementById('currentMonth').textContent =
+                        monthNames[currentDate.getMonth()] + ' ' + currentDate.getFullYear();
+                }
+
+                function changeMonth(direction) {
+                    currentDate.setMonth(currentDate.getMonth() + direction);
+                    updateCalendarDisplay();
+                    loadCalendarData();
+                }
+
+                function loadCalendarData() {
     console.log('Iniciando carga de calendario');
-    console.log('Ajax URL:', ajaxUrl);
-    console.log('Nonce:', nonce);
     
     const formData = new FormData();
     formData.append('action', 'get_calendar_data');
@@ -1125,81 +1171,89 @@ private function show_dashboard() {
     formData.append('year', currentDate.getFullYear());
     formData.append('nonce', nonce);
     
-    console.log('Enviando petición AJAX');
-    
     fetch(ajaxUrl, {
         method: 'POST',
         body: formData
     })
     .then(response => {
-        console.log('Respuesta recibida:', response);
-        return response.json();
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.text(); // Cambiar a .text() para ver el contenido raw
     })
-    .then(data => {
-        console.log('Datos recibidos:', data);
-        if (data.success) {
-            servicesData = data.data;
-            renderCalendar();
-        } else {
-            console.error('Error del servidor:', data.data);
-            alert('Error al cargar el calendario: ' + data.data);
+    .then(text => {
+        console.log('Raw response:', text);
+        
+        try {
+            const data = JSON.parse(text);
+            console.log('Parsed JSON:', data);
+            
+            if (data.success) {
+                servicesData = data.data;
+                renderCalendar();
+            } else {
+                alert('Error del servidor: ' + data.data);
+            }
+        } catch (e) {
+            console.error('Error parsing JSON:', e);
+            console.error('Raw text that failed to parse:', text);
+            alert('Error: respuesta no es JSON válido. Ver consola para detalles.');
         }
     })
     .catch(error => {
-        console.error('Error completo:', error);
+        console.error('Fetch error:', error);
         alert('Error de conexión: ' + error.message);
     });
 }
-        
-        function renderCalendar() {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const firstDayOfWeek = firstDay.getDay();
-            const daysInMonth = lastDay.getDate();
-            
-            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-            
-            let calendarHTML = '<div class="calendar-grid">';
-            
-            // Encabezados de días
-            dayNames.forEach(day => {
-                calendarHTML += `<div class="calendar-header-day">${day}</div>`;
-            });
-            
-            // Días del mes anterior
-            for (let i = 0; i < firstDayOfWeek; i++) {
-                const dayNum = new Date(year, month, -firstDayOfWeek + i + 1).getDate();
-                calendarHTML += `<div class="calendar-day other-month">
+
+                function renderCalendar() {
+                    const year = currentDate.getFullYear();
+                    const month = currentDate.getMonth();
+
+                    const firstDay = new Date(year, month, 1);
+                    const lastDay = new Date(year, month + 1, 0);
+                    const firstDayOfWeek = firstDay.getDay();
+                    const daysInMonth = lastDay.getDate();
+
+                    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+                    let calendarHTML = '<div class="calendar-grid">';
+
+                    // Encabezados de días
+                    dayNames.forEach(day => {
+                        calendarHTML += `<div class="calendar-header-day">${day}</div>`;
+                    });
+
+                    // Días del mes anterior
+                    for (let i = 0; i < firstDayOfWeek; i++) {
+                        const dayNum = new Date(year, month, -firstDayOfWeek + i + 1).getDate();
+                        calendarHTML += `<div class="calendar-day other-month">
                     <div class="day-number">${dayNum}</div>
                 </div>`;
-            }
-            
-            // Días del mes actual
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const isToday = dateStr === new Date().toISOString().split('T')[0];
-                const todayClass = isToday ? ' today' : '';
-                
-                let servicesHTML = '';
-                if (servicesData[dateStr]) {
-                    servicesData[dateStr].forEach(service => {
-                        servicesHTML += `<div class="service-item" onclick="editService(${service.id})">${service.hora}</div>`;
-                    });
-                }
-                
-                calendarHTML += `<div class="calendar-day${todayClass}" onclick="addService('${dateStr}')">
+                    }
+
+                    // Días del mes actual
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const isToday = dateStr === new Date().toISOString().split('T')[0];
+                        const todayClass = isToday ? ' today' : '';
+
+                        let servicesHTML = '';
+                        if (servicesData[dateStr]) {
+                            servicesData[dateStr].forEach(service => {
+                                servicesHTML += `<div class="service-item" onclick="editService(${service.id})">${service.hora}</div>`;
+                            });
+                        }
+
+                        calendarHTML += `<div class="calendar-day${todayClass}" onclick="addService('${dateStr}')">
                     <div class="day-number">${day}</div>
                     ${servicesHTML}
                 </div>`;
-            }
-            
-            calendarHTML += '</div>';
-            
-            // Modales
-            calendarHTML += `
+                    }
+
+                    calendarHTML += '</div>';
+
+                    // Modales
+                    calendarHTML += `
                 <!-- Modal Añadir/Editar Servicio -->
                 <div id="serviceModal" class="modal">
                     <div class="modal-content">
@@ -1333,242 +1387,245 @@ private function show_dashboard() {
                     </div>
                 </div>
             `;
-            
-            document.getElementById('calendar-container').innerHTML = calendarHTML;
-            
-            // Inicializar eventos de los modales
-            initModalEvents();
-        }
-        
-        function initModalEvents() {
-            // Formulario de servicio individual
-            document.getElementById('serviceForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                saveService();
-            });
-            
-            // Formulario de servicios masivos
-            document.getElementById('bulkAddForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                saveBulkServices();
-            });
-        }
-        
-        function addService(fecha) {
-            document.getElementById('serviceModalTitle').textContent = 'Añadir Servicio';
-            document.getElementById('serviceForm').reset();
-            document.getElementById('serviceId').value = '';
-            document.getElementById('serviceFecha').value = fecha;
-            document.getElementById('deleteServiceBtn').style.display = 'none';
-            
-            // Valores por defecto
-            document.getElementById('servicePlazas').value = 50;
-            document.getElementById('precioAdulto').value = 15.00;
-            document.getElementById('precioNino').value = 7.50;
-            document.getElementById('precioResidente').value = 5.00;
-            
-            document.getElementById('serviceModal').style.display = 'block';
-        }
-        
-        function editService(serviceId) {
-            const formData = new FormData();
-            formData.append('action', 'get_service_details');
-            formData.append('service_id', serviceId);
-            formData.append('nonce', nonce);
-            
-            fetch(ajaxUrl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const service = data.data;
-                    document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
-                    document.getElementById('serviceId').value = service.id;
-                    document.getElementById('serviceFecha').value = service.fecha;
-                    document.getElementById('serviceHora').value = service.hora;
-                    document.getElementById('servicePlazas').value = service.plazas_totales;
-                    document.getElementById('precioAdulto').value = service.precio_adulto;
-                    document.getElementById('precioNino').value = service.precio_nino;
-                    document.getElementById('precioResidente').value = service.precio_residente;
-                    document.getElementById('deleteServiceBtn').style.display = 'block';
-                    
+
+                    document.getElementById('calendar-container').innerHTML = calendarHTML;
+
+                    // Inicializar eventos de los modales
+                    initModalEvents();
+                }
+
+                function initModalEvents() {
+                    // Formulario de servicio individual
+                    document.getElementById('serviceForm').addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        saveService();
+                    });
+
+                    // Formulario de servicios masivos
+                    document.getElementById('bulkAddForm').addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        saveBulkServices();
+                    });
+                }
+
+                function addService(fecha) {
+                    document.getElementById('serviceModalTitle').textContent = 'Añadir Servicio';
+                    document.getElementById('serviceForm').reset();
+                    document.getElementById('serviceId').value = '';
+                    document.getElementById('serviceFecha').value = fecha;
+                    document.getElementById('deleteServiceBtn').style.display = 'none';
+
+                    // Valores por defecto
+                    document.getElementById('servicePlazas').value = 50;
+                    document.getElementById('precioAdulto').value = 15.00;
+                    document.getElementById('precioNino').value = 7.50;
+                    document.getElementById('precioResidente').value = 5.00;
+
                     document.getElementById('serviceModal').style.display = 'block';
-                } else {
-                    alert('Error al cargar el servicio: ' + data.data);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error de conexión');
-            });
-        }
-        
-        function saveService() {
-            const formData = new FormData(document.getElementById('serviceForm'));
-            formData.append('action', 'save_service');
-            formData.append('nonce', nonce);
-            
-            fetch(ajaxUrl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Servicio guardado correctamente');
-                    closeServiceModal();
-                    loadCalendarData();
-                } else {
-                    alert('Error: ' + data.data);
+
+                function editService(serviceId) {
+                    const formData = new FormData();
+                    formData.append('action', 'get_service_details');
+                    formData.append('service_id', serviceId);
+                    formData.append('nonce', nonce);
+
+                    fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const service = data.data;
+                                document.getElementById('serviceModalTitle').textContent = 'Editar Servicio';
+                                document.getElementById('serviceId').value = service.id;
+                                document.getElementById('serviceFecha').value = service.fecha;
+                                document.getElementById('serviceHora').value = service.hora;
+                                document.getElementById('servicePlazas').value = service.plazas_totales;
+                                document.getElementById('precioAdulto').value = service.precio_adulto;
+                                document.getElementById('precioNino').value = service.precio_nino;
+                                document.getElementById('precioResidente').value = service.precio_residente;
+                                document.getElementById('deleteServiceBtn').style.display = 'block';
+
+                                document.getElementById('serviceModal').style.display = 'block';
+                            } else {
+                                alert('Error al cargar el servicio: ' + data.data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error de conexión');
+                        });
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error de conexión');
-            });
-        }
-        
-        function deleteService() {
-            if (!confirm('¿Estás seguro de que quieres eliminar este servicio?')) {
-                return;
-            }
-            
-            const serviceId = document.getElementById('serviceId').value;
-            const formData = new FormData();
-            formData.append('action', 'delete_service');
-            formData.append('service_id', serviceId);
-            formData.append('nonce', nonce);
-            
-            fetch(ajaxUrl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Servicio eliminado correctamente');
-                    closeServiceModal();
-                    loadCalendarData();
-                } else {
-                    alert('Error: ' + data.data);
+
+                function saveService() {
+                    const formData = new FormData(document.getElementById('serviceForm'));
+                    formData.append('action', 'save_service');
+                    formData.append('nonce', nonce);
+
+                    fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Servicio guardado correctamente');
+                                closeServiceModal();
+                                loadCalendarData();
+                            } else {
+                                alert('Error: ' + data.data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error de conexión');
+                        });
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error de conexión');
-            });
-        }
-        
-        function closeServiceModal() {
-            document.getElementById('serviceModal').style.display = 'none';
-        }
-        
-        function showBulkAddModal() {
-            document.getElementById('bulkAddForm').reset();
-            bulkHorarios = [];
-            updateHorariosList();
-            
-            // Valores por defecto
-            document.getElementById('bulkPlazas').value = 50;
-            document.getElementById('bulkPrecioAdulto').value = 15.00;
-            document.getElementById('bulkPrecioNino').value = 7.50;
-            document.getElementById('bulkPrecioResidente').value = 5.00;
-            
-            document.getElementById('bulkAddModal').style.display = 'block';
-        }
-        
-        function closeBulkAddModal() {
-            document.getElementById('bulkAddModal').style.display = 'none';
-        }
-        
-        function addHorario() {
-            const horarioInput = document.getElementById('nuevoHorario');
-            const horario = horarioInput.value;
-            
-            if (horario && !bulkHorarios.find(h => h.hora === horario)) {
-                bulkHorarios.push({ hora: horario });
-                horarioInput.value = '';
-                updateHorariosList();
-            }
-        }
-        
-        function removeHorario(index) {
-            bulkHorarios.splice(index, 1);
-            updateHorariosList();
-        }
-        
-        function updateHorariosList() {
-            const container = document.getElementById('horariosList');
-            
-            if (bulkHorarios.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666;">No hay horarios añadidos</p>';
-                return;
-            }
-            
-            let html = '';
-            bulkHorarios.forEach((horario, index) => {
-                html += `
+
+                function deleteService() {
+                    if (!confirm('¿Estás seguro de que quieres eliminar este servicio?')) {
+                        return;
+                    }
+
+                    const serviceId = document.getElementById('serviceId').value;
+                    const formData = new FormData();
+                    formData.append('action', 'delete_service');
+                    formData.append('service_id', serviceId);
+                    formData.append('nonce', nonce);
+
+                    fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Servicio eliminado correctamente');
+                                closeServiceModal();
+                                loadCalendarData();
+                            } else {
+                                alert('Error: ' + data.data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error de conexión');
+                        });
+                }
+
+                function closeServiceModal() {
+                    document.getElementById('serviceModal').style.display = 'none';
+                }
+
+                function showBulkAddModal() {
+                    document.getElementById('bulkAddForm').reset();
+                    bulkHorarios = [];
+                    updateHorariosList();
+
+                    // Valores por defecto
+                    document.getElementById('bulkPlazas').value = 50;
+                    document.getElementById('bulkPrecioAdulto').value = 15.00;
+                    document.getElementById('bulkPrecioNino').value = 7.50;
+                    document.getElementById('bulkPrecioResidente').value = 5.00;
+
+                    document.getElementById('bulkAddModal').style.display = 'block';
+                }
+
+                function closeBulkAddModal() {
+                    document.getElementById('bulkAddModal').style.display = 'none';
+                }
+
+                function addHorario() {
+                    const horarioInput = document.getElementById('nuevoHorario');
+                    const horario = horarioInput.value;
+
+                    if (horario && !bulkHorarios.find(h => h.hora === horario)) {
+                        bulkHorarios.push({
+                            hora: horario
+                        });
+                        horarioInput.value = '';
+                        updateHorariosList();
+                    }
+                }
+
+                function removeHorario(index) {
+                    bulkHorarios.splice(index, 1);
+                    updateHorariosList();
+                }
+
+                function updateHorariosList() {
+                    const container = document.getElementById('horariosList');
+
+                    if (bulkHorarios.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #666;">No hay horarios añadidos</p>';
+                        return;
+                    }
+
+                    let html = '';
+                    bulkHorarios.forEach((horario, index) => {
+                        html += `
                     <div class="horario-item">
                         <span>${horario.hora}</span>
                         <button type="button" class="btn-small btn-danger" onclick="removeHorario(${index})">Eliminar</button>
                     </div>
                 `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function saveBulkServices() {
-            if (bulkHorarios.length === 0) {
-                alert('Debes añadir al menos un horario');
-                return;
-            }
-            
-            const formData = new FormData(document.getElementById('bulkAddForm'));
-            formData.append('action', 'bulk_add_services');
-            formData.append('horarios', JSON.stringify(bulkHorarios));
-            formData.append('nonce', nonce);
-            
-            // Obtener días de la semana seleccionados
-            const diasSeleccionados = [];
-            document.querySelectorAll('input[name="dias_semana[]"]:checked').forEach(checkbox => {
-                diasSeleccionados.push(checkbox.value);
-            });
-            
-            diasSeleccionados.forEach(dia => {
-                formData.append('dias_semana[]', dia);
-            });
-            
-            fetch(ajaxUrl, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.data.mensaje);
-                    closeBulkAddModal();
-                    loadCalendarData();
-                } else {
-                    alert('Error: ' + data.data);
+                    });
+
+                    container.innerHTML = html;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error de conexión');
-            });
-        }
-        
-        function goBackToDashboard() {
-            location.reload();
-        }
-        </script>
-    </body>
-    </html>
+
+                function saveBulkServices() {
+                    if (bulkHorarios.length === 0) {
+                        alert('Debes añadir al menos un horario');
+                        return;
+                    }
+
+                    const formData = new FormData(document.getElementById('bulkAddForm'));
+                    formData.append('action', 'bulk_add_services');
+                    formData.append('horarios', JSON.stringify(bulkHorarios));
+                    formData.append('nonce', nonce);
+
+                    // Obtener días de la semana seleccionados
+                    const diasSeleccionados = [];
+                    document.querySelectorAll('input[name="dias_semana[]"]:checked').forEach(checkbox => {
+                        diasSeleccionados.push(checkbox.value);
+                    });
+
+                    diasSeleccionados.forEach(dia => {
+                        formData.append('dias_semana[]', dia);
+                    });
+
+                    fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.data.mensaje);
+                                closeBulkAddModal();
+                                loadCalendarData();
+                            } else {
+                                alert('Error: ' + data.data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error de conexión');
+                        });
+                }
+
+                function goBackToDashboard() {
+                    location.reload();
+                }
+            </script>
+        </body>
+
+        </html>
     <?php
-}
+    }
 
     public function activate()
     {
