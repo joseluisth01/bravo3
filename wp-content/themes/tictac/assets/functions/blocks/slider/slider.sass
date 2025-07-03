@@ -1,0 +1,175 @@
+$height: 100vh
+$content: 720px
+$content-padding: 20px
+$content-background: none
+$title-font: 50px
+$title-line: normal
+$title-weight: 700
+$title-color: #FFFFFF
+$title-width: 550px
+$subtitle-font: 35px
+$subtitle-line: normal
+$subtitle-weight: 400
+$subtitle-color: #FFFFFF
+$subtitle-background: none
+$subtitle-width: 550px
+$subtitle-margin: 12px 0 20px 0
+$subtitle-padding: 12px 0 20px 0
+$text-color: #FFFFFF
+$slider-background: #F0F0F8
+.slider_full
+    background: $slider-background
+    font-family: "worksans"
+    height: 100vh
+    ul
+        li.splide__slide
+            height: $height
+            display: flex
+            flex-wrap: wrap
+            align-items: center
+            justify-content: center
+            li.splide__slide
+                height: 30px
+                .title_nested
+                    color: $text-color
+                    font-weight: 500
+                    font-size: 30px
+                    letter-spacing: 5px
+        img
+            width: 100%
+            height: 100%
+            position: absolute
+            object-fit: cover
+            object-position: center center
+        .content
+            position: absolute
+            width: auto
+            max-width: $content
+            padding: $content-padding
+            z-index: 2
+            display: flex
+            flex-wrap: wrap
+            justify-content: center
+            background: $content-background
+            .titulo
+                color: $title-color
+                width: 100%
+                font-family: 'ReplayPro-Bold' !important
+                font-size: 100px !important
+                font-weight: 500 !important
+                line-height: 95px !important
+                text-align: center !important
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5)
+
+                p
+                    color: $title-color
+                    width: 100%
+                    font-family: 'ReplayPro-Bold' !important
+                    font-size: 100px !important
+                    font-weight: 500 !important
+                    line-height: 95px !important
+                    text-align: center !important
+
+            .subtitulo
+                font-size: $subtitle-font
+                line-height: $subtitle-line
+                margin: $subtitle-margin
+                font-weight: $subtitle-weight
+                text-align: center
+                width: auto
+                color: $subtitle-color
+                background: $subtitle-background
+                padding: $subtitle-padding
+            p
+                text-align: center
+                width: 100%
+                color: $text-color
+                font-weight: $subtitle-weight
+            .link
+                width: 100%
+                text-align: center
+@media (max-width: 768px)
+    .slider_full ul li.splide__slide
+        //height: 500px
+    body
+        .links_banner .formulario .titulo
+            font-size: 23px
+            letter-spacing: 2px
+        .links_banner .formulario
+            padding: 20px
+        .slider_full ul.splide__list li.splide__slide li.splide__slide .title_nested
+            font-size: 20px
+        .slider_full ul.splide__list .content .titulo, .slider_full ul.splide__list .content .titulo p
+            font-size: 30px
+            line-height: normal
+.links_banner
+    display: flex
+    flex-wrap: wrap
+    justify-content: center
+    position: relative
+    bottom: 80px
+    width: 100%
+    .formulario
+        width: 100%
+        max-width: 1090px
+        padding: 27px 52px
+        background: #7879B7
+        border: 3px solid #FFFFFF
+        border-radius: 20px
+        display: flex
+        flex-wrap: wrap
+        justify-content: center
+        z-index: 10
+        .titulo
+            width: 100%
+            max-width: 800px
+            text-align: center
+            color: #FFFFFF
+            font-size: 40px
+            font-weight: 700
+            margin-bottom: 20px
+            letter-spacing: 12px
+        form
+            margin: 0
+            color: #FFFFFF
+            p,a
+                color: #FFFFFF
+            input[type="radio"]
+                width: 22px
+                height: 22px
+            .wpcf7-submit
+                width: 100%
+            .wpcf7-acceptance
+                .wpcf7-list-item
+                    margin: 0
+                    width: auto
+                    margin-right: 15px
+            .wpcf7-radio
+                display: flex
+                flex-wrap: wrap
+                .wpcf7-list-item
+                    margin: 0
+                    display: inline-flex
+                    align-items: center
+                    input
+                        margin-right: 15px
+                    &.first
+                        width: 50%
+                    &.last
+                        width: 50%
+
+.splide__arrows
+    position: absolute
+    top: 60% // Ajusta este valor para que quede justo debajo del título
+    left: 50%
+    transform: translate(-50%, -50%) // Centra horizontalmente las flechas
+    display: flex
+    z-index: 10
+
+.splide__arro
+    background-color: rgba(0, 0, 0, 0) // Fondo semitransparente para que se vean mejor
+    padding: 0px !important
+
+.splide__arro:hover
+    background-color: transparent
+    
