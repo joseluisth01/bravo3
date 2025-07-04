@@ -512,3 +512,297 @@ function saveBulkServices() {
 function goBackToDashboard() {
     location.reload();
 }
+
+
+function loadDiscountsConfigSection() {
+    document.body.innerHTML = `
+        <div class="discounts-management">
+            <div class="discounts-header">
+                <h1>Configuración de Descuentos</h1>
+                <div class="discounts-actions">
+                    <button class="btn-primary" onclick="showAddDiscountModal()">➕ Añadir Nueva Regla</button>
+                    <button class="btn-secondary" onclick="goBackToDashboard()">← Volver al Dashboard</button>
+                </div>
+            </div>
+            
+            <div class="current-rules-section">
+                <h3>Reglas de Descuento Actuales</h3>
+                <div id="discounts-list">
+                    <div class="loading">Cargando reglas de descuento...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Añadir/Editar Regla de Descuento -->
+        <div id="discountModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeDiscountModal()">&times;</span>
+                <h3 id="discountModalTitle">Añadir Regla de Descuento</h3>
+                <form id="discountForm">
+                    <input type="hidden" id="discountId" name="discount_id">
+                    
+                    <div class="form-group">
+                        <label for="ruleName">Nombre de la Regla:</label>
+                        <input type="text" id="ruleName" name="rule_name" placeholder="Ej: Descuento Grupo Grande" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="minimumPersons">Mínimo de Personas:</label>
+                            <input type="number" id="minimumPersons" name="minimum_persons" min="1" max="100" placeholder="10" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="discountPercentage">Porcentaje de Descuento (%):</label>
+                            <input type="number" id="discountPercentage" name="discount_percentage" min="1" max="100" step="0.1" placeholder="15" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="applyTo">Aplicar a:</label>
+                        <select id="applyTo" name="apply_to" required>
+                            <option value="total">Total de la reserva</option>
+                            <option value="adults_only">Solo adultos</option>
+                            <option value="all_paid">Todas las personas que pagan</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ruleDescription">Descripción:</label>
+                        <textarea id="ruleDescription" name="rule_description" rows="3" placeholder="Describe cuándo se aplica este descuento"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="isActive" name="is_active" checked>
+                            Regla activa
+                        </label>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Guardar Regla</button>
+                        <button type="button" class="btn-secondary" onclick="closeDiscountModal()">Cancelar</button>
+                        <button type="button" id="deleteDiscountBtn" class="btn-danger" onclick="deleteDiscountRule()" style="display: none;">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    // Inicializar eventos
+    initDiscountEvents();
+    
+    // Cargar reglas existentes
+    loadDiscountRules();
+}
+
+function initDiscountEvents() {
+    // Formulario de regla de descuento
+    document.getElementById('discountForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveDiscountRule();
+    });
+}
+
+function loadDiscountRules() {
+    const formData = new FormData();
+    formData.append('action', 'get_discount_rules');
+    formData.append('nonce', reservasAjax.nonce);
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderDiscountRules(data.data);
+        } else {
+            document.getElementById('discounts-list').innerHTML = 
+                '<p class="error">Error cargando las reglas: ' + data.data + '</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('discounts-list').innerHTML = 
+            '<p class="error">Error de conexión</p>';
+    });
+}
+
+function renderDiscountRules(rules) {
+    let html = '';
+    
+    if (rules.length === 0) {
+        html = `
+            <div class="no-rules">
+                <p>No hay reglas de descuento configuradas.</p>
+                <button class="btn-primary" onclick="showAddDiscountModal()">Crear Primera Regla</button>
+            </div>
+        `;
+    } else {
+        html = `
+            <div class="rules-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Mínimo Personas</th>
+                            <th>Descuento</th>
+                            <th>Aplicar a</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        rules.forEach(rule => {
+            const statusClass = rule.is_active == 1 ? 'status-active' : 'status-inactive';
+            const statusText = rule.is_active == 1 ? 'Activa' : 'Inactiva';
+            const applyToText = getApplyToText(rule.apply_to);
+            
+            html += `
+                <tr>
+                    <td>${rule.rule_name}</td>
+                    <td>${rule.minimum_persons} personas</td>
+                    <td>${rule.discount_percentage}%</td>
+                    <td>${applyToText}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn-edit" onclick="editDiscountRule(${rule.id})">Editar</button>
+                        <button class="btn-delete" onclick="confirmDeleteRule(${rule.id})">Eliminar</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    document.getElementById('discounts-list').innerHTML = html;
+}
+
+function getApplyToText(applyTo) {
+    const texts = {
+        'total': 'Total de la reserva',
+        'adults_only': 'Solo adultos',
+        'all_paid': 'Personas que pagan'
+    };
+    return texts[applyTo] || applyTo;
+}
+
+function showAddDiscountModal() {
+    document.getElementById('discountModalTitle').textContent = 'Añadir Regla de Descuento';
+    document.getElementById('discountForm').reset();
+    document.getElementById('discountId').value = '';
+    document.getElementById('deleteDiscountBtn').style.display = 'none';
+    document.getElementById('isActive').checked = true;
+    
+    // Valores por defecto
+    document.getElementById('minimumPersons').value = 10;
+    document.getElementById('discountPercentage').value = 15;
+    document.getElementById('applyTo').value = 'total';
+    
+    document.getElementById('discountModal').style.display = 'block';
+}
+
+function editDiscountRule(ruleId) {
+    const formData = new FormData();
+    formData.append('action', 'get_discount_rule_details');
+    formData.append('rule_id', ruleId);
+    formData.append('nonce', reservasAjax.nonce);
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const rule = data.data;
+            document.getElementById('discountModalTitle').textContent = 'Editar Regla de Descuento';
+            document.getElementById('discountId').value = rule.id;
+            document.getElementById('ruleName').value = rule.rule_name;
+            document.getElementById('minimumPersons').value = rule.minimum_persons;
+            document.getElementById('discountPercentage').value = rule.discount_percentage;
+            document.getElementById('applyTo').value = rule.apply_to;
+            document.getElementById('ruleDescription').value = rule.rule_description || '';
+            document.getElementById('isActive').checked = rule.is_active == 1;
+            document.getElementById('deleteDiscountBtn').style.display = 'block';
+
+            document.getElementById('discountModal').style.display = 'block';
+        } else {
+            alert('Error al cargar la regla: ' + data.data);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión');
+    });
+}
+
+function saveDiscountRule() {
+    const formData = new FormData(document.getElementById('discountForm'));
+    formData.append('action', 'save_discount_rule');
+    formData.append('nonce', reservasAjax.nonce);
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Regla guardada correctamente');
+            closeDiscountModal();
+            loadDiscountRules();
+        } else {
+            alert('Error: ' + data.data);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión');
+    });
+}
+
+function confirmDeleteRule(ruleId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta regla de descuento?')) {
+        deleteDiscountRule(ruleId);
+    }
+}
+
+function deleteDiscountRule(ruleId = null) {
+    const id = ruleId || document.getElementById('discountId').value;
+    
+    const formData = new FormData();
+    formData.append('action', 'delete_discount_rule');
+    formData.append('rule_id', id);
+    formData.append('nonce', reservasAjax.nonce);
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Regla eliminada correctamente');
+            closeDiscountModal();
+            loadDiscountRules();
+        } else {
+            alert('Error: ' + data.data);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión');
+    });
+}
+
+function closeDiscountModal() {
+    document.getElementById('discountModal').style.display = 'none';
+}

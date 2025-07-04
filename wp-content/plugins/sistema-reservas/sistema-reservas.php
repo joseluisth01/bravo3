@@ -17,6 +17,7 @@ class SistemaReservas
 {
     private $dashboard;
     private $calendar_admin;
+    private $discounts_admin;
 
     public function __construct()
     {
@@ -51,6 +52,7 @@ class SistemaReservas
             'includes/class-admin.php',
             'includes/class-dashboard.php',
             'includes/class-calendar-admin.php',
+            'includes/class-discounts-admin.php', // Nueva clase para descuentos
             'includes/class-frontend.php',
         );
 
@@ -76,9 +78,15 @@ class SistemaReservas
         if (class_exists('ReservasCalendarAdmin')) {
             $this->calendar_admin = new ReservasCalendarAdmin();
         }
+
+        // Inicializar nueva clase de descuentos
+        if (class_exists('ReservasDiscountsAdmin')) {
+            $this->discounts_admin = new ReservasDiscountsAdmin();
+        }
+
         if (class_exists('ReservasFrontend')) {
-    new ReservasFrontend();
-}
+            new ReservasFrontend();
+        }
     }
 
     public function add_rewrite_rules()
@@ -159,6 +167,7 @@ class SistemaReservas
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_users);
 
+        // Tabla de servicios
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
         $sql_servicios = "CREATE TABLE $table_servicios (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -182,8 +191,31 @@ class SistemaReservas
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_servicios);
 
+        // Tabla de reglas de descuento
+        $table_discounts = $wpdb->prefix . 'reservas_discount_rules';
+        $sql_discounts = "CREATE TABLE $table_discounts (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            rule_name varchar(100) NOT NULL,
+            minimum_persons int(11) NOT NULL,
+            discount_percentage decimal(5,2) NOT NULL,
+            apply_to enum('total', 'adults_only', 'all_paid') DEFAULT 'total',
+            rule_description text,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY is_active (is_active),
+            KEY minimum_persons (minimum_persons)
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql_discounts);
+
         // Crear usuario super admin inicial
         $this->create_super_admin();
+
+        // Crear regla de descuento por defecto
+        $this->create_default_discount_rule();
     }
 
     private function create_super_admin()
@@ -208,6 +240,30 @@ class SistemaReservas
                     'role' => 'super_admin',
                     'status' => 'active',
                     'created_at' => current_time('mysql')
+                )
+            );
+        }
+    }
+
+    private function create_default_discount_rule()
+    {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'reservas_discount_rules';
+
+        // Verificar si ya hay reglas
+        $existing_rules = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+
+        if ($existing_rules == 0) {
+            $wpdb->insert(
+                $table_name,
+                array(
+                    'rule_name' => 'Descuento Grupo Grande',
+                    'minimum_persons' => 10,
+                    'discount_percentage' => 15.00,
+                    'apply_to' => 'total',
+                    'rule_description' => 'Descuento automático para grupos de 10 o más personas',
+                    'is_active' => 1
                 )
             );
         }

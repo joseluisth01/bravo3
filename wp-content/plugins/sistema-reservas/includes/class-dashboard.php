@@ -111,6 +111,196 @@ private function render_dashboard_page() {
                 nonce: '<?php echo wp_create_nonce('reservas_nonce'); ?>'
             };
         </script>
+        <style>
+            /* Estilos adicionales para la gestión de descuentos */
+            .discounts-management {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                padding: 20px;
+                background: #f1f1f1;
+                min-height: 100vh;
+            }
+
+            .discounts-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 30px;
+                padding: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .discounts-header h1 {
+                margin: 0;
+                color: #23282d;
+            }
+
+            .discounts-actions {
+                display: flex;
+                gap: 10px;
+            }
+
+            .current-rules-section {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .current-rules-section h3 {
+                margin-top: 0;
+                color: #23282d;
+                border-bottom: 2px solid #0073aa;
+                padding-bottom: 10px;
+            }
+
+            .rules-table table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+            }
+
+            .rules-table th,
+            .rules-table td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+
+            .rules-table th {
+                background: #f8f9fa;
+                font-weight: bold;
+                color: #333;
+            }
+
+            .rules-table tr:hover {
+                background: #f8f9fa;
+            }
+
+            .no-rules {
+                text-align: center;
+                padding: 40px;
+                color: #666;
+            }
+
+            .no-rules p {
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+
+            .btn-edit,
+            .btn-delete {
+                padding: 6px 12px;
+                margin: 0 2px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                text-decoration: none;
+                display: inline-block;
+            }
+
+            .btn-edit {
+                background: #0073aa;
+                color: white;
+            }
+
+            .btn-edit:hover {
+                background: #005a87;
+            }
+
+            .btn-delete {
+                background: #d63638;
+                color: white;
+            }
+
+            .btn-delete:hover {
+                background: #b32d2e;
+            }
+
+            .btn-danger {
+                background: #d63638;
+                color: white;
+            }
+
+            .btn-danger:hover {
+                background: #b32d2e;
+            }
+
+            /* Estilos para el formulario de descuentos */
+            #discountModal .modal-content {
+                max-width: 600px;
+            }
+
+            #discountModal .form-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+
+            #discountModal .form-group {
+                margin-bottom: 15px;
+            }
+
+            #discountModal .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                color: #333;
+            }
+
+            #discountModal .form-group input,
+            #discountModal .form-group select,
+            #discountModal .form-group textarea {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+
+            #discountModal .form-group input:focus,
+            #discountModal .form-group select:focus,
+            #discountModal .form-group textarea:focus {
+                outline: none;
+                border-color: #0073aa;
+                box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
+            }
+
+            #discountModal .form-group input[type="checkbox"] {
+                width: auto;
+                margin-right: 8px;
+            }
+
+            #discountModal .form-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 20px;
+                justify-content: flex-start;
+            }
+
+            @media (max-width: 768px) {
+                .discounts-header {
+                    flex-direction: column;
+                    gap: 15px;
+                    text-align: center;
+                }
+
+                .discounts-actions {
+                    justify-content: center;
+                }
+
+                #discountModal .form-row {
+                    grid-template-columns: 1fr;
+                }
+
+                .rules-table {
+                    overflow-x: auto;
+                }
+            }
+        </style>
     </head>
     <body>
         <div class="dashboard-header">
@@ -154,6 +344,7 @@ private function render_dashboard_page() {
                         <button class="action-btn" onclick="alert('Función en desarrollo')">👥 Gestionar Usuarios</button>
                         <button class="action-btn" onclick="loadCalendarSection()">📅 Gestionar Calendario</button>
                         <button class="action-btn" onclick="alert('Función en desarrollo')">🎫 Ver Reservas</button>
+                        <button class="action-btn" onclick="loadDiscountsConfigSection()">💰 Configurar Descuentos</button>
                         <button class="action-btn" onclick="alert('Función en desarrollo')">⚙️ Configuración</button>
                         <button class="action-btn" onclick="alert('Función en desarrollo')">📊 Informes</button>
                         <button class="action-btn" onclick="alert('Función en desarrollo')">🏢 Gestionar Agencias</button>
@@ -165,7 +356,8 @@ private function render_dashboard_page() {
                 <h3>Próximos Pasos de Desarrollo</h3>
                 <ul>
                     <li>Implementar gestión de usuarios completa</li>
-                    <li>Crear sistema de calendario y horarios</li>
+                    <li>Crear sistema de calendario y horarios ✅</li>
+                    <li>Configurar descuentos automáticos ✅</li>
                     <li>Desarrollar sistema de reservas</li>
                     <li>Integrar métodos de pago</li>
                     <li>Crear generación de PDFs y códigos QR</li>
