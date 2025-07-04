@@ -316,6 +316,20 @@
     transform: none;
 }
 
+/* Grid para mostrar ambos pasos juntos */
+.booking-steps-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .booking-steps-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
     .reservas-booking-container {
