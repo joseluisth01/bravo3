@@ -45,75 +45,80 @@ class SistemaReservas
     }
 
 
-public function get_calendar_data() {
-    // Limpiar cualquier output buffer
-    if (ob_get_level()) {
-        ob_clean();
+    public function get_calendar_data()
+    {
+        // Limpiar cualquier output buffer
+        if (ob_get_level()) {
+            ob_clean();
+        }
+
+        // Headers para JSON
+        header('Content-Type: application/json');
+
+        try {
+            // Verificar nonce
+            if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+                wp_send_json_error('Error de seguridad');
+                exit;
+            }
+
+            // Verificar sesión
+            if (!session_id()) {
+                session_start();
+            }
+
+            if (!isset($_SESSION['reservas_user'])) {
+                wp_send_json_error('Usuario no logueado');
+                exit;
+            }
+
+            // Obtener datos reales de la base de datos
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'reservas_servicios';
+
+            $month = isset($_POST['month']) ? intval($_POST['month']) : date('n');
+            $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
+
+            // Calcular primer y último día del mes
+            $first_day = sprintf('%04d-%02d-01', $year, $month);
+            $last_day = date('Y-m-t', strtotime($first_day));
+
+            // Consultar servicios del mes
+            $servicios = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM $table_name 
+                WHERE fecha BETWEEN %s AND %s 
+                AND status = 'active'
+                ORDER BY fecha, hora",
+                $first_day,
+                $last_day
+            ));
+
+            // Organizar por fecha
+            $calendar_data = array();
+            foreach ($servicios as $servicio) {
+                if (!isset($calendar_data[$servicio->fecha])) {
+                    $calendar_data[$servicio->fecha] = array();
+                }
+
+                $calendar_data[$servicio->fecha][] = array(
+                    'id' => $servicio->id,
+                    'hora' => substr($servicio->hora, 0, 5), // Formato HH:MM
+                    'plazas_totales' => $servicio->plazas_totales,
+                    'plazas_disponibles' => $servicio->plazas_disponibles,
+                    'precio_adulto' => $servicio->precio_adulto,
+                    'precio_nino' => $servicio->precio_nino,
+                    'precio_residente' => $servicio->precio_residente
+                );
+            }
+
+            wp_send_json_success($calendar_data);
+            exit;
+        } catch (Exception $e) {
+            error_log('ERROR EXCEPTION: ' . $e->getMessage());
+            wp_send_json_error('Error: ' . $e->getMessage());
+            exit;
+        }
     }
-    
-    // Headers para JSON
-    header('Content-Type: application/json');
-    
-    try {
-        // Log básico
-        error_log('=== INICIO get_calendar_data ===');
-        
-        // Verificar nonce
-        if (!isset($_POST['nonce'])) {
-            error_log('ERROR: Nonce no encontrado');
-            wp_send_json_error('Nonce no encontrado');
-            exit;
-        }
-        
-        if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
-            error_log('ERROR: Nonce inválido');
-            wp_send_json_error('Nonce inválido');
-            exit;
-        }
-        
-        // Verificar sesión
-        if (!session_id()) {
-            session_start();
-        }
-        
-        if (!isset($_SESSION['reservas_user'])) {
-            error_log('ERROR: Usuario no logueado');
-            wp_send_json_error('Usuario no logueado');
-            exit;
-        }
-        
-        // Por ahora, devolver datos de prueba
-        $calendar_data = array(
-            '2025-07-15' => array(
-                array(
-                    'id' => 1,
-                    'hora' => '10:00',
-                    'plazas_totales' => 50,
-                    'fecha' => '2025-07-15'
-                )
-            ),
-            '2025-07-20' => array(
-                array(
-                    'id' => 2,
-                    'hora' => '14:00',
-                    'plazas_totales' => 40,
-                    'fecha' => '2025-07-20'
-                )
-            )
-        );
-        
-        error_log('=== ENVIANDO RESPUESTA ===');
-        error_log('Datos: ' . json_encode($calendar_data));
-        
-        wp_send_json_success($calendar_data);
-        exit;
-        
-    } catch (Exception $e) {
-        error_log('ERROR EXCEPTION: ' . $e->getMessage());
-        wp_send_json_error('Error: ' . $e->getMessage());
-        exit;
-    }
-}
 
     // Método para guardar un servicio
     public function save_service()
@@ -176,7 +181,7 @@ public function get_calendar_data() {
         if ($result !== false) {
             wp_send_json_success('Servicio guardado correctamente');
         } else {
-            wp_send_json_error('Error al guardar el servicio');
+            wp_send_json_error('Error al guardar el servicio: ' . $wpdb->last_error);
         }
     }
 
@@ -200,17 +205,7 @@ public function get_calendar_data() {
 
         $service_id = intval($_POST['service_id']);
 
-        // Verificar que no tenga reservas
-        $reservas_table = $wpdb->prefix . 'reservas_reservas';
-        $reservas = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $reservas_table WHERE servicio_id = %d",
-            $service_id
-        ));
-
-        if ($reservas > 0) {
-            wp_send_json_error('No se puede eliminar un servicio con reservas');
-        }
-
+        // Por ahora eliminar directamente, luego implementaremos la verificación de reservas
         $result = $wpdb->delete($table_name, array('id' => $service_id));
 
         if ($result !== false) {
@@ -283,6 +278,7 @@ public function get_calendar_data() {
         $fecha_limite = strtotime($fecha_fin);
         $servicios_creados = 0;
         $servicios_existentes = 0;
+        $errores = 0;
 
         while ($fecha_actual <= $fecha_limite) {
             $fecha_str = date('Y-m-d', $fecha_actual);
@@ -315,6 +311,9 @@ public function get_calendar_data() {
 
                         if ($result !== false) {
                             $servicios_creados++;
+                        } else {
+                            $errores++;
+                            error_log("Error insertando servicio: " . $wpdb->last_error);
                         }
                     } else {
                         $servicios_existentes++;
@@ -325,40 +324,45 @@ public function get_calendar_data() {
             $fecha_actual = strtotime('+1 day', $fecha_actual);
         }
 
+        $mensaje = "Se crearon $servicios_creados servicios.";
+        if ($servicios_existentes > 0) {
+            $mensaje .= " $servicios_existentes ya existían.";
+        }
+        if ($errores > 0) {
+            $mensaje .= " Hubo $errores errores.";
+        }
+
         wp_send_json_success(array(
             'creados' => $servicios_creados,
             'existentes' => $servicios_existentes,
-            'mensaje' => "Se crearon $servicios_creados servicios. $servicios_existentes ya existían."
+            'errores' => $errores,
+            'mensaje' => $mensaje
         ));
     }
 
-    private function load_dependencies() {
-    $files = array(
-        'includes/class-database.php',
-        'includes/class-auth.php',
-        'includes/class-admin.php',
-        // 'includes/class-reservas.php'  // Comentar temporalmente
-    );
-    
-    foreach ($files as $file) {
-        $path = RESERVAS_PLUGIN_PATH . $file;
-        if (file_exists($path)) {
-            require_once $path;
+    private function load_dependencies()
+    {
+        $files = array(
+            'includes/class-database.php',
+            'includes/class-auth.php',
+            'includes/class-admin.php',
+        );
+
+        foreach ($files as $file) {
+            $path = RESERVAS_PLUGIN_PATH . $file;
+            if (file_exists($path)) {
+                require_once $path;
+            }
+        }
+
+        // Inicializar solo lo esencial
+        if (class_exists('ReservasAuth')) {
+            new ReservasAuth();
         }
     }
-    
-    // Inicializar solo lo esencial
-    if (class_exists('ReservasAuth')) {
-        new ReservasAuth();
-    }
-    // if (class_exists('ReservasAdmin')) {
-    //     new ReservasAdmin();  // Comentar temporalmente
-    // }
-}
 
     public function add_rewrite_rules()
     {
-        // Importante: usar add_rewrite_rule directamente en init
         add_rewrite_rule('^reservas-login/?$', 'index.php?reservas_page=login', 'top');
         add_rewrite_rule('^reservas-admin/?$', 'index.php?reservas_page=dashboard', 'top');
         add_rewrite_rule('^reservas-admin/([^/]+)/?$', 'index.php?reservas_page=dashboard&reservas_section=$matches[1]', 'top');
@@ -1163,47 +1167,47 @@ public function get_calendar_data() {
                 }
 
                 function loadCalendarData() {
-    console.log('Iniciando carga de calendario');
-    
-    const formData = new FormData();
-    formData.append('action', 'get_calendar_data');
-    formData.append('month', currentDate.getMonth() + 1);
-    formData.append('year', currentDate.getFullYear());
-    formData.append('nonce', nonce);
-    
-    fetch(ajaxUrl, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        return response.text(); // Cambiar a .text() para ver el contenido raw
-    })
-    .then(text => {
-        console.log('Raw response:', text);
-        
-        try {
-            const data = JSON.parse(text);
-            console.log('Parsed JSON:', data);
-            
-            if (data.success) {
-                servicesData = data.data;
-                renderCalendar();
-            } else {
-                alert('Error del servidor: ' + data.data);
-            }
-        } catch (e) {
-            console.error('Error parsing JSON:', e);
-            console.error('Raw text that failed to parse:', text);
-            alert('Error: respuesta no es JSON válido. Ver consola para detalles.');
-        }
-    })
-    .catch(error => {
-        console.error('Fetch error:', error);
-        alert('Error de conexión: ' + error.message);
-    });
-}
+                    console.log('Iniciando carga de calendario');
+
+                    const formData = new FormData();
+                    formData.append('action', 'get_calendar_data');
+                    formData.append('month', currentDate.getMonth() + 1);
+                    formData.append('year', currentDate.getFullYear());
+                    formData.append('nonce', nonce);
+
+                    fetch(ajaxUrl, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            console.log('Response headers:', response.headers);
+                            return response.text(); // Cambiar a .text() para ver el contenido raw
+                        })
+                        .then(text => {
+                            console.log('Raw response:', text);
+
+                            try {
+                                const data = JSON.parse(text);
+                                console.log('Parsed JSON:', data);
+
+                                if (data.success) {
+                                    servicesData = data.data;
+                                    renderCalendar();
+                                } else {
+                                    alert('Error del servidor: ' + data.data);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing JSON:', e);
+                                console.error('Raw text that failed to parse:', text);
+                                alert('Error: respuesta no es JSON válido. Ver consola para detalles.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Fetch error:', error);
+                            alert('Error de conexión: ' + error.message);
+                        });
+                }
 
                 function renderCalendar() {
                     const year = currentDate.getFullYear();
@@ -1211,10 +1215,13 @@ public function get_calendar_data() {
 
                     const firstDay = new Date(year, month, 1);
                     const lastDay = new Date(year, month + 1, 0);
-                    const firstDayOfWeek = firstDay.getDay();
+                    let firstDayOfWeek = firstDay.getDay();
+                    firstDayOfWeek = (firstDayOfWeek + 6) % 7;
+
                     const daysInMonth = lastDay.getDate();
 
-                    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                    const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
 
                     let calendarHTML = '<div class="calendar-grid">';
 
@@ -1223,12 +1230,11 @@ public function get_calendar_data() {
                         calendarHTML += `<div class="calendar-header-day">${day}</div>`;
                     });
 
-                    // Días del mes anterior
                     for (let i = 0; i < firstDayOfWeek; i++) {
                         const dayNum = new Date(year, month, -firstDayOfWeek + i + 1).getDate();
                         calendarHTML += `<div class="calendar-day other-month">
-                    <div class="day-number">${dayNum}</div>
-                </div>`;
+        <div class="day-number">${dayNum}</div>
+    </div>`;
                     }
 
                     // Días del mes actual
@@ -1417,8 +1423,8 @@ public function get_calendar_data() {
 
                     // Valores por defecto
                     document.getElementById('servicePlazas').value = 50;
-                    document.getElementById('precioAdulto').value = 15.00;
-                    document.getElementById('precioNino').value = 7.50;
+                    document.getElementById('precioAdulto').value = 10.00;
+                    document.getElementById('precioNino').value = 5.00;
                     document.getElementById('precioResidente').value = 5.00;
 
                     document.getElementById('serviceModal').style.display = 'block';
@@ -1526,8 +1532,8 @@ public function get_calendar_data() {
 
                     // Valores por defecto
                     document.getElementById('bulkPlazas').value = 50;
-                    document.getElementById('bulkPrecioAdulto').value = 15.00;
-                    document.getElementById('bulkPrecioNino').value = 7.50;
+                    document.getElementById('bulkPrecioAdulto').value = 10.00;
+                    document.getElementById('bulkPrecioNino').value = 5.00;
                     document.getElementById('bulkPrecioResidente').value = 5.00;
 
                     document.getElementById('bulkAddModal').style.display = 'block';
