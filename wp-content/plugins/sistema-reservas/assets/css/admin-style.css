@@ -112,6 +112,7 @@
 .dashboard-content {
     display: flex;
     min-height: calc(100vh - 60px);
+    flex-direction: column;
 }
 
 .dashboard-sidebar {
@@ -293,7 +294,7 @@ th {
 
 .login-container .form-group input[type="text"],
 .login-container .form-group input[type="password"] {
-    width: 100%;
+    width: 95%;
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 4px;

@@ -51,6 +51,7 @@ class SistemaReservas
             'includes/class-admin.php',
             'includes/class-dashboard.php',
             'includes/class-calendar-admin.php',
+            'includes/class-frontend.php',
         );
 
         foreach ($files as $file) {
@@ -75,6 +76,9 @@ class SistemaReservas
         if (class_exists('ReservasCalendarAdmin')) {
             $this->calendar_admin = new ReservasCalendarAdmin();
         }
+        if (class_exists('ReservasFrontend')) {
+    new ReservasFrontend();
+}
     }
 
     public function add_rewrite_rules()
