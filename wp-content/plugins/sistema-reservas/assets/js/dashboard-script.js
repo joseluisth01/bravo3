@@ -125,14 +125,35 @@ function renderCalendar() {
         const isToday = dateStr === new Date().toISOString().split('T')[0];
         const todayClass = isToday ? ' today' : '';
 
+        // ACTUALIZADO: Verificar si algún servicio tiene descuento
+        let hasDiscount = false;
+        if (servicesData[dateStr]) {
+            hasDiscount = servicesData[dateStr].some(service => 
+                service.tiene_descuento && parseFloat(service.porcentaje_descuento) > 0
+            );
+        }
+
         let servicesHTML = '';
         if (servicesData[dateStr]) {
             servicesData[dateStr].forEach(service => {
-                servicesHTML += `<div class="service-item" onclick="editService(${service.id})">${service.hora}</div>`;
+                let serviceClass = 'service-item';
+                let discountText = '';
+                
+                if (service.tiene_descuento && parseFloat(service.porcentaje_descuento) > 0) {
+                    serviceClass += ' service-discount';
+                    discountText = ` (${service.porcentaje_descuento}% OFF)`;
+                }
+                
+                servicesHTML += `<div class="${serviceClass}" onclick="editService(${service.id})">${service.hora}${discountText}</div>`;
             });
         }
 
-        calendarHTML += `<div class="calendar-day${todayClass}" onclick="addService('${dateStr}')">
+        let dayClass = `calendar-day${todayClass}`;
+        if (hasDiscount) {
+            dayClass += ' day-with-discount';
+        }
+
+        calendarHTML += `<div class="${dayClass}" onclick="addService('${dateStr}')">
             <div class="day-number">${day}</div>
             ${servicesHTML}
         </div>`;
@@ -184,6 +205,20 @@ function getModalHTML() {
                         <label for="precioResidente">Precio Residente (€):</label>
                         <input type="number" id="precioResidente" name="precio_residente" step="0.01" min="0" required>
                     </div>
+                    
+                    <!-- NUEVO: Sección de descuento -->
+                    <div class="form-group discount-section">
+                        <label>
+                            <input type="checkbox" id="tieneDescuento" name="tiene_descuento"> 
+                            Activar descuento especial para este servicio
+                        </label>
+                        <div id="discountFields" style="display: none; margin-top: 10px;">
+                            <label for="porcentajeDescuento">Porcentaje de descuento (%):</label>
+                            <input type="number" id="porcentajeDescuento" name="porcentaje_descuento" 
+                                   min="0" max="100" step="0.1" placeholder="Ej: 15">
+                        </div>
+                    </div>
+                    
                     <div class="form-actions">
                         <button type="submit" class="btn-primary">Guardar Servicio</button>
                         <button type="button" class="btn-secondary" onclick="closeServiceModal()">Cancelar</button>
@@ -276,6 +311,19 @@ function getModalHTML() {
                         <input type="number" id="bulkPrecioResidente" name="precio_residente" step="0.01" min="0" required>
                     </div>
                     
+                    <!-- NUEVO: Sección de descuento para bulk -->
+                    <div class="form-group discount-section">
+                        <label>
+                            <input type="checkbox" id="bulkTieneDescuento" name="bulk_tiene_descuento"> 
+                            Aplicar descuento especial a todos los servicios
+                        </label>
+                        <div id="bulkDiscountFields" style="display: none; margin-top: 10px;">
+                            <label for="bulkPorcentajeDescuento">Porcentaje de descuento (%):</label>
+                            <input type="number" id="bulkPorcentajeDescuento" name="bulk_porcentaje_descuento" 
+                                   min="0" max="100" step="0.1" placeholder="Ej: 15">
+                        </div>
+                    </div>
+                    
                     <div class="form-actions">
                         <button type="submit" class="btn-primary">Crear Servicios</button>
                         <button type="button" class="btn-secondary" onclick="closeBulkAddModal()">Cancelar</button>
@@ -298,6 +346,27 @@ function initModalEvents() {
         e.preventDefault();
         saveBulkServices();
     });
+
+    // NUEVO: Eventos para los checkboxes de descuento
+    document.getElementById('tieneDescuento').addEventListener('change', function() {
+        const discountFields = document.getElementById('discountFields');
+        if (this.checked) {
+            discountFields.style.display = 'block';
+        } else {
+            discountFields.style.display = 'none';
+            document.getElementById('porcentajeDescuento').value = '';
+        }
+    });
+
+    document.getElementById('bulkTieneDescuento').addEventListener('change', function() {
+        const bulkDiscountFields = document.getElementById('bulkDiscountFields');
+        if (this.checked) {
+            bulkDiscountFields.style.display = 'block';
+        } else {
+            bulkDiscountFields.style.display = 'none';
+            document.getElementById('bulkPorcentajeDescuento').value = '';
+        }
+    });
 }
 
 function addService(fecha) {
@@ -312,6 +381,11 @@ function addService(fecha) {
     document.getElementById('precioAdulto').value = 10.00;
     document.getElementById('precioNino').value = 5.00;
     document.getElementById('precioResidente').value = 5.00;
+
+    // NUEVO: Ocultar campos de descuento por defecto
+    document.getElementById('discountFields').style.display = 'none';
+    document.getElementById('tieneDescuento').checked = false;
+    document.getElementById('porcentajeDescuento').value = '';
 
     document.getElementById('serviceModal').style.display = 'block';
 }
@@ -338,8 +412,20 @@ function editService(serviceId) {
                 document.getElementById('precioAdulto').value = service.precio_adulto;
                 document.getElementById('precioNino').value = service.precio_nino;
                 document.getElementById('precioResidente').value = service.precio_residente;
-                document.getElementById('deleteServiceBtn').style.display = 'block';
+                
+                // NUEVO: Cargar datos de descuento
+                const tieneDescuento = service.tiene_descuento == '1';
+                document.getElementById('tieneDescuento').checked = tieneDescuento;
+                
+                if (tieneDescuento) {
+                    document.getElementById('discountFields').style.display = 'block';
+                    document.getElementById('porcentajeDescuento').value = service.porcentaje_descuento || '';
+                } else {
+                    document.getElementById('discountFields').style.display = 'none';
+                    document.getElementById('porcentajeDescuento').value = '';
+                }
 
+                document.getElementById('deleteServiceBtn').style.display = 'block';
                 document.getElementById('serviceModal').style.display = 'block';
             } else {
                 alert('Error al cargar el servicio: ' + data.data);
@@ -421,6 +507,11 @@ function showBulkAddModal() {
     document.getElementById('bulkPrecioAdulto').value = 10.00;
     document.getElementById('bulkPrecioNino').value = 5.00;
     document.getElementById('bulkPrecioResidente').value = 5.00;
+
+    // NUEVO: Ocultar campos de descuento por defecto
+    document.getElementById('bulkDiscountFields').style.display = 'none';
+    document.getElementById('bulkTieneDescuento').checked = false;
+    document.getElementById('bulkPorcentajeDescuento').value = '';
 
     document.getElementById('bulkAddModal').style.display = 'block';
 }

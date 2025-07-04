@@ -16,7 +16,7 @@ class ReservasFrontend
         add_action('wp_ajax_nopriv_calculate_price', array($this, 'calculate_price'));
     }
 
-    public function enqueue_frontend_assets()
+public function enqueue_frontend_assets()
     {
         global $post;
 
@@ -45,7 +45,6 @@ class ReservasFrontend
 
         // Cargar assets para página de detalles
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_detalles')) {
-            // Crear un archivo CSS inline con los estilos específicos
             wp_add_inline_style('wp-block-library', $this->get_details_css());
         }
     }
@@ -301,7 +300,7 @@ class ReservasFrontend
     public function render_booking_form()
     {
         ob_start();
-?>
+        ?>
         <div id="reservas-formulario" class="reservas-booking-container">
             <!-- Paso 1: Seleccionar fecha/hora Y personas juntos -->
             <div class="booking-step" id="step-1">
@@ -413,7 +412,7 @@ class ReservasFrontend
                 </button>
             </div>
         </div>
-    <?php
+        <?php
         return ob_get_clean();
     }
 
@@ -433,9 +432,11 @@ class ReservasFrontend
         $first_day = sprintf('%04d-%02d-01', $year, $month);
         $last_day = date('Y-m-t', strtotime($first_day));
 
-        // Consultar servicios del mes
+        // ACTUALIZADO: Incluir los nuevos campos de descuento en la consulta
         $servicios = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $table_name 
+            "SELECT id, fecha, hora, plazas_disponibles, precio_adulto, precio_nino, precio_residente, 
+                    tiene_descuento, porcentaje_descuento
+            FROM $table_name 
             WHERE fecha BETWEEN %s AND %s 
             AND status = 'active'
             AND plazas_disponibles > 0
@@ -457,7 +458,9 @@ class ReservasFrontend
                 'plazas_disponibles' => $servicio->plazas_disponibles,
                 'precio_adulto' => $servicio->precio_adulto,
                 'precio_nino' => $servicio->precio_nino,
-                'precio_residente' => $servicio->precio_residente
+                'precio_residente' => $servicio->precio_residente,
+                'tiene_descuento' => $servicio->tiene_descuento,
+                'porcentaje_descuento' => $servicio->porcentaje_descuento
             );
         }
 
@@ -465,107 +468,115 @@ class ReservasFrontend
     }
 
 public function calculate_price()
-{
-    if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
-        wp_die('Error de seguridad');
-    }
-
-    $service_id = intval($_POST['service_id']);
-    $adultos = intval($_POST['adultos']);
-    $residentes = intval($_POST['residentes']);
-    $ninos_5_12 = intval($_POST['ninos_5_12']);
-    $ninos_menores = intval($_POST['ninos_menores']);
-
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'reservas_servicios';
-
-    $servicio = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM $table_name WHERE id = %d",
-        $service_id
-    ));
-
-    if (!$servicio) {
-        wp_send_json_error('Servicio no encontrado');
-    }
-
-    // Calcular precio base (sin descuentos)
-    $precio_base = 0;
-    $descuento_total = 0;
-
-    // Adultos normales (precio completo)
-    $precio_base += $adultos * $servicio->precio_adulto;
-
-    // Adultos residentes (precio base como adulto normal)
-    $precio_base += $residentes * $servicio->precio_adulto;
-    $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
-    $descuento_total += $descuento_residentes;
-
-    // Niños 5-12 años (precio base como adulto)
-    $precio_base += $ninos_5_12 * $servicio->precio_adulto;
-    $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
-    $descuento_total += $descuento_ninos;
-
-    // Niños menores de 5 años (gratis - no ocupan plaza)
-    // No se añade nada al precio base
-
-    // Calcular total de personas que ocupan plaza
-    $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
-
-    // NUEVO: Calcular descuento por grupo usando las reglas configuradas
-    $descuento_grupo = 0;
-    $regla_aplicada = null;
-
-    if ($total_personas_con_plaza > 0) {
-        // Incluir la clase de descuentos si no está cargada
-        if (!class_exists('ReservasDiscountsAdmin')) {
-            require_once RESERVAS_PLUGIN_PATH . 'includes/class-discounts-admin.php';
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+            wp_die('Error de seguridad');
         }
 
-        // Calcular el subtotal después de descuentos individuales
-        $subtotal = $precio_base - $descuento_total;
+        $service_id = intval($_POST['service_id']);
+        $adultos = intval($_POST['adultos']);
+        $residentes = intval($_POST['residentes']);
+        $ninos_5_12 = intval($_POST['ninos_5_12']);
+        $ninos_menores = intval($_POST['ninos_menores']);
 
-        // Aplicar regla de descuento por grupo sobre el subtotal
-        $discount_info = ReservasDiscountsAdmin::calculate_discount(
-            $total_personas_con_plaza, 
-            $subtotal, 
-            'total'
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'reservas_servicios';
+
+        // ACTUALIZADO: Incluir campos de descuento en la consulta
+        $servicio = $wpdb->get_row($wpdb->prepare(
+            "SELECT *, tiene_descuento, porcentaje_descuento FROM $table_name WHERE id = %d",
+            $service_id
+        ));
+
+        if (!$servicio) {
+            wp_send_json_error('Servicio no encontrado');
+        }
+
+        // Calcular precio base (sin descuentos)
+        $precio_base = 0;
+        $descuento_total = 0;
+
+        // Adultos normales (precio completo)
+        $precio_base += $adultos * $servicio->precio_adulto;
+
+        // Adultos residentes (precio base como adulto normal)
+        $precio_base += $residentes * $servicio->precio_adulto;
+        $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
+        $descuento_total += $descuento_residentes;
+
+        // Niños 5-12 años (precio base como adulto)
+        $precio_base += $ninos_5_12 * $servicio->precio_adulto;
+        $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
+        $descuento_total += $descuento_ninos;
+
+        // Calcular total de personas que ocupan plaza
+        $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
+
+        // Calcular descuento por grupo usando las reglas configuradas
+        $descuento_grupo = 0;
+        $regla_aplicada = null;
+
+        if ($total_personas_con_plaza > 0) {
+            if (!class_exists('ReservasDiscountsAdmin')) {
+                require_once RESERVAS_PLUGIN_PATH . 'includes/class-discounts-admin.php';
+            }
+
+            $subtotal = $precio_base - $descuento_total;
+
+            $discount_info = ReservasDiscountsAdmin::calculate_discount(
+                $total_personas_con_plaza, 
+                $subtotal, 
+                'total'
+            );
+
+            if ($discount_info['discount_applied']) {
+                $descuento_grupo = $discount_info['discount_amount'];
+                $descuento_total += $descuento_grupo;
+                $regla_aplicada = array(
+                    'rule_name' => $discount_info['rule_name'],
+                    'discount_percentage' => $discount_info['discount_percentage'],
+                    'minimum_persons' => $discount_info['minimum_persons']
+                );
+            }
+        }
+
+        // NUEVO: Aplicar descuento específico del servicio si existe
+        $descuento_servicio = 0;
+        if ($servicio->tiene_descuento && floatval($servicio->porcentaje_descuento) > 0) {
+            $subtotal_actual = $precio_base - $descuento_total;
+            $descuento_servicio = ($subtotal_actual * floatval($servicio->porcentaje_descuento)) / 100;
+            $descuento_total += $descuento_servicio;
+        }
+
+        // Calcular total final
+        $total = $precio_base - $descuento_total;
+
+        // Asegurar que el total no sea negativo
+        if ($total < 0) {
+            $total = 0;
+        }
+
+        $response_data = array(
+            'precio_base' => round($precio_base, 2),
+            'descuento' => round($descuento_total, 2),
+            'descuento_residentes' => round($descuento_residentes, 2),
+            'descuento_ninos' => round($descuento_ninos, 2),
+            'descuento_grupo' => round($descuento_grupo, 2),
+            'descuento_servicio' => round($descuento_servicio, 2), // NUEVO
+            'total' => round($total, 2),
+            'precio_adulto' => $servicio->precio_adulto,
+            'precio_nino' => $servicio->precio_nino,
+            'precio_residente' => $servicio->precio_residente,
+            'total_personas_con_plaza' => $total_personas_con_plaza,
+            'regla_descuento_aplicada' => $regla_aplicada,
+            'servicio_con_descuento' => array( // NUEVO
+                'tiene_descuento' => $servicio->tiene_descuento,
+                'porcentaje_descuento' => $servicio->porcentaje_descuento
+            )
         );
 
-        if ($discount_info['discount_applied']) {
-            $descuento_grupo = $discount_info['discount_amount'];
-            $descuento_total += $descuento_grupo;
-            $regla_aplicada = array(
-                'rule_name' => $discount_info['rule_name'],
-                'discount_percentage' => $discount_info['discount_percentage'],
-                'minimum_persons' => $discount_info['minimum_persons']
-            );
-        }
+        wp_send_json_success($response_data);
     }
-
-    // Calcular total final
-    $total = $precio_base - $descuento_total;
-
-    // Asegurar que el total no sea negativo
-    if ($total < 0) {
-        $total = 0;
-    }
-
-$response_data = array(
-    'precio_base' => round($precio_base, 2),
-    'descuento' => round($descuento_total, 2),
-    'descuento_residentes' => round($descuento_residentes, 2),
-    'descuento_ninos' => round($descuento_ninos, 2),
-    'descuento_grupo' => round($descuento_grupo, 2), // ASEGURAR QUE ESTÉ ESTO
-    'total' => round($total, 2),
-    'precio_adulto' => $servicio->precio_adulto,
-    'precio_nino' => $servicio->precio_nino,
-    'precio_residente' => $servicio->precio_residente,
-    'total_personas_con_plaza' => $total_personas_con_plaza,
-    'regla_descuento_aplicada' => $regla_aplicada // ASEGURAR QUE ESTÉ ESTO
-);
-
-    wp_send_json_success($response_data);
-}
 
     public function render_details_form()
     {

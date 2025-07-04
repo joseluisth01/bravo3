@@ -43,9 +43,9 @@ jQuery(document).ready(function ($) {
 
         // Cambios en selectores de personas
         $('#adultos, #residentes, #ninos-5-12, #ninos-menores').on('input change', function () {
-    calculateTotalPrice();
-    validatePersonSelection();
-});
+            calculateTotalPrice();
+            validatePersonSelection();
+        });
 
         // Navegación entre pasos
         $('#btn-siguiente').on('click', function () {
@@ -119,7 +119,7 @@ function renderCalendar() {
             calendarHTML += `<div class="calendar-day other-month">${dayNum}</div>`;
         }
 
-        // CORRECCIÓN: Obtener fecha actual de manera más precisa
+        // Obtener fecha actual de manera más precisa
         const today = new Date();
         const todayYear = today.getFullYear();
         const todayMonth = today.getMonth();
@@ -129,7 +129,7 @@ function renderCalendar() {
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
-            // CORRECCIÓN: Comparación más directa y precisa
+            // Comparación más directa y precisa
             let isPastOrToday = false;
             
             if (year < todayYear) {
@@ -155,9 +155,14 @@ function renderCalendar() {
                 clickHandler = `onclick="selectDate('${dateStr}')"`;
                 console.log(`Día ${day} disponible con servicios`);
 
-                // Verificar si hay ofertas (esto se puede personalizar)
-                if (day % 7 === 0) { // Ejemplo: domingos con oferta
+                // AQUÍ ESTÁ EL CAMBIO: Verificar si algún servicio tiene descuento
+                const tieneDescuento = servicesData[dateStr].some(service => 
+                    service.tiene_descuento && parseFloat(service.porcentaje_descuento) > 0
+                );
+                
+                if (tieneDescuento) {
                     dayClass += ' oferta';
+                    console.log(`Día ${day} tiene oferta/descuento`);
                 }
             } else {
                 dayClass += ' no-disponible';
@@ -212,7 +217,12 @@ function renderCalendar() {
         let optionsHTML = '<option value="">Selecciona un horario</option>';
 
         services.forEach(service => {
-            optionsHTML += `<option value="${service.id}">${service.hora} - ${service.plazas_disponibles} plazas disponibles</option>`;
+            let descuentoInfo = '';
+            if (service.tiene_descuento && parseFloat(service.porcentaje_descuento) > 0) {
+                descuentoInfo = ` (${service.porcentaje_descuento}% descuento)`;
+            }
+            
+            optionsHTML += `<option value="${service.id}">${service.hora} - ${service.plazas_disponibles} plazas disponibles${descuentoInfo}</option>`;
         });
 
         $('#horarios-select').html(optionsHTML).prop('disabled', false);
@@ -243,7 +253,6 @@ function renderCalendar() {
 
     function calculateTotalPrice() {
         if (!selectedServiceId) {
-            // Si no hay servicio seleccionado, limpiar precios
             clearPricing();
             return;
         }
@@ -255,7 +264,6 @@ function renderCalendar() {
 
         const totalPersonas = adultos + residentes + ninos512 + ninosMenores;
 
-        // Si no hay personas seleccionadas, limpiar precios
         if (totalPersonas === 0) {
             clearPricing();
             return;
@@ -291,49 +299,48 @@ function renderCalendar() {
     }
 
     function clearPricing() {
-    $('#total-discount').text('');
-    $('#total-price').text('');
-    $('#discount-row').hide();
-    $('#discount-message').removeClass('show');
-    console.log('Precios limpiados');
-}
-
-function updatePricingDisplay(result) {
-    console.log('Datos recibidos del servidor:', result);
-    
-    // Manejar descuentos
-    if (result.descuento > 0) {
-        $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
-        $('#discount-row').show();
-    } else {
+        $('#total-discount').text('');
+        $('#total-price').text('');
         $('#discount-row').hide();
-    }
-    
-    // Manejar mensaje de descuento por grupo
-    if (result.regla_descuento_aplicada && result.regla_descuento_aplicada.rule_name) {
-        const regla = result.regla_descuento_aplicada;
-        const mensaje = `Descuento del ${regla.discount_percentage}% por ${regla.rule_name.toLowerCase()}`;
-        
-        $('#discount-text').text(mensaje);
-        $('#discount-message').addClass('show');
-        
-        console.log('Descuento por grupo aplicado:', mensaje);
-    } else {
         $('#discount-message').removeClass('show');
+        console.log('Precios limpiados');
     }
 
-    window.lastDiscountRule = result.regla_descuento_aplicada;
-    
-    // Actualizar precio total
-    $('#total-price').text(result.total.toFixed(2) + '€');
-    
-    console.log('Precios actualizados:', {
-        descuento: result.descuento,
-        total: result.total,
-        regla_aplicada: result.regla_descuento_aplicada
-    });
-}
+    function updatePricingDisplay(result) {
+        console.log('Datos recibidos del servidor:', result);
+        
+        // Manejar descuentos
+        if (result.descuento > 0) {
+            $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
+            $('#discount-row').show();
+        } else {
+            $('#discount-row').hide();
+        }
+        
+        // Manejar mensaje de descuento por grupo
+        if (result.regla_descuento_aplicada && result.regla_descuento_aplicada.rule_name) {
+            const regla = result.regla_descuento_aplicada;
+            const mensaje = `Descuento del ${regla.discount_percentage}% por ${regla.rule_name.toLowerCase()}`;
+            
+            $('#discount-text').text(mensaje);
+            $('#discount-message').addClass('show');
+            
+            console.log('Descuento por grupo aplicado:', mensaje);
+        } else {
+            $('#discount-message').removeClass('show');
+        }
 
+        window.lastDiscountRule = result.regla_descuento_aplicada;
+        
+        // Actualizar precio total
+        $('#total-price').text(result.total.toFixed(2) + '€');
+        
+        console.log('Precios actualizados:', {
+            descuento: result.descuento,
+            total: result.total,
+            regla_aplicada: result.regla_descuento_aplicada
+        });
+    }
 
     function validatePersonSelection() {
         const adultos = parseInt($('#adultos').val()) || 0;
@@ -344,7 +351,6 @@ function updatePricingDisplay(result) {
         const totalAdults = adultos + residentes;
         const totalChildren = ninos512 + ninosMenores;
 
-        // Validar que hay al menos un adulto si hay niños
         if (totalChildren > 0 && totalAdults === 0) {
             alert('Debe haber al menos un adulto si hay niños en la reserva.');
             $('#ninos-5-12, #ninos-menores').val(0);
@@ -356,13 +362,11 @@ function updatePricingDisplay(result) {
     }
 
     function nextStep() {
-        // Validar que se ha seleccionado fecha y horario
         if (!selectedDate || !selectedServiceId) {
             alert('Por favor, selecciona una fecha y horario.');
             return;
         }
 
-        // Validar selección de personas
         const adultos = parseInt($('#adultos').val()) || 0;
         const residentes = parseInt($('#residentes').val()) || 0;
         const ninos512 = parseInt($('#ninos-5-12').val()) || 0;
@@ -379,7 +383,6 @@ function updatePricingDisplay(result) {
             return;
         }
 
-        // Mostrar el paso 2 (botón de completar)
         $('#step-2').show();
         $('#btn-siguiente').hide();
     }
@@ -400,7 +403,7 @@ function updatePricingDisplay(result) {
         }
     }
 
-function resetForm() {
+    function resetForm() {
         currentStep = 1;
         selectedDate = null;
         selectedServiceId = null;
@@ -415,11 +418,9 @@ function resetForm() {
 
         $('.calendar-day').removeClass('selected');
 
-        // Limpiar precios al resetear
         clearPricing();
     }
 
-    // Función global para el botón de completar reserva
     window.proceedToPayment = function () {
         const service = findServiceById(selectedServiceId);
         const adultos = parseInt($('#adultos').val()) || 0;
@@ -444,30 +445,23 @@ function resetForm() {
         `;
 
         if (confirm(resumen)) {
-            // Aquí redirigir al sistema de pago o procesar la reserva
             alert('Función de pago en desarrollo. La reserva se procesaría aquí.');
-
-            // Reiniciar formulario
             resetForm();
         }
     };
 
-    // FUNCIÓN COMPLETAMENTE REESCRITA: Nueva función para ir a la página de detalles
     window.proceedToDetails = function() {
         console.log('=== INICIANDO proceedToDetails ===');
         
-        // Debug: Mostrar URL actual
         console.log('URL actual:', window.location.href);
         console.log('Pathname actual:', window.location.pathname);
         
-        // Validar que tenemos todos los datos necesarios
         if (!selectedDate || !selectedServiceId) {
             alert('Error: No hay fecha o servicio seleccionado');
             console.log('selectedDate:', selectedDate, 'selectedServiceId:', selectedServiceId);
             return;
         }
         
-        // Obtener datos del servicio seleccionado
         const service = findServiceById(selectedServiceId);
         if (!service) {
             alert('Error: No se encontraron datos del servicio');
@@ -476,13 +470,11 @@ function resetForm() {
         }
         console.log('Servicio encontrado:', service);
         
-        // Recopilar todos los datos del formulario
         const adultos = parseInt($('#adultos').val()) || 0;
         const residentes = parseInt($('#residentes').val()) || 0;
         const ninos_5_12 = parseInt($('#ninos-5-12').val()) || 0;
         const ninos_menores = parseInt($('#ninos-menores').val()) || 0;
         
-        // Obtener el precio total con mejor manejo de errores
         let totalPrice = '0';
         try {
             const totalPriceElement = $('#total-price');
@@ -497,33 +489,30 @@ function resetForm() {
             console.error('Error obteniendo precio total:', error);
         }
         
-const reservationData = {
-    fecha: selectedDate,
-    service_id: selectedServiceId,
-    hora_ida: service.hora,
-    adultos: adultos,
-    residentes: residentes,
-    ninos_5_12: ninos_5_12,
-    ninos_menores: ninos_menores,
-    precio_adulto: service.precio_adulto,
-    precio_nino: service.precio_nino,
-    precio_residente: service.precio_residente,
-    total_price: totalPrice,
-    // AÑADIR ESTOS CAMPOS:
-    descuento_grupo: $('#total-discount').text().includes('€') ? 
-        parseFloat($('#total-discount').text().replace('€', '').replace('-', '')) : 0,
-    regla_descuento_aplicada: window.lastDiscountRule || null // Variable global para guardar la última regla
-};
+        const reservationData = {
+            fecha: selectedDate,
+            service_id: selectedServiceId,
+            hora_ida: service.hora,
+            adultos: adultos,
+            residentes: residentes,
+            ninos_5_12: ninos_5_12,
+            ninos_menores: ninos_menores,
+            precio_adulto: service.precio_adulto,
+            precio_nino: service.precio_nino,
+            precio_residente: service.precio_residente,
+            total_price: totalPrice,
+            descuento_grupo: $('#total-discount').text().includes('€') ? 
+                parseFloat($('#total-discount').text().replace('€', '').replace('-', '')) : 0,
+            regla_descuento_aplicada: window.lastDiscountRule || null
+        };
         
         console.log('Datos de reserva preparados:', reservationData);
         
-        // Guardar en sessionStorage con mejor manejo de errores
         try {
             const dataString = JSON.stringify(reservationData);
             sessionStorage.setItem('reservationData', dataString);
             console.log('Datos guardados en sessionStorage exitosamente');
             
-            // Verificar que se guardó correctamente
             const savedData = sessionStorage.getItem('reservationData');
             console.log('Verificación datos guardados:', savedData);
         } catch (error) {
@@ -532,18 +521,14 @@ const reservationData = {
             return;
         }
         
-        // NUEVA LÓGICA: Usar la función de WordPress para obtener URLs
         let targetUrl;
         
-        // Método 1: Intentar detectar automáticamente
         const currentPath = window.location.pathname;
         console.log('Path actual:', currentPath);
         
         if (currentPath.includes('/bravo/')) {
-            // Estamos en el subdirectorio bravo
             targetUrl = window.location.origin + '/bravo/detalles-reserva/';
         } else if (currentPath.includes('/')) {
-            // Detectar otros subdirectorios
             const pathParts = currentPath.split('/').filter(part => part !== '');
             if (pathParts.length > 0 && pathParts[0] !== 'detalles-reserva') {
                 targetUrl = window.location.origin + '/' + pathParts[0] + '/detalles-reserva/';
@@ -559,7 +544,6 @@ const reservationData = {
         window.location.href = targetUrl;
     };
 
-    // Hacer disponibles las funciones globalmente
     window.selectDate = selectDate;
     window.findServiceById = findServiceById;
 

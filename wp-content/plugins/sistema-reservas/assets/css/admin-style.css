@@ -185,11 +185,11 @@
 
 .modal-content {
     background-color: white;
-    margin: 5% auto;
+    margin: 1% auto;
     padding: 20px;
     border-radius: 8px;
     width: 90%;
-    max-width: 500px;
+    max-width: 700px;
     position: relative;
 }
 
@@ -667,15 +667,7 @@ body {
     background-color: rgba(0, 0, 0, 0.5);
 }
 
-.modal-content {
-    background-color: white;
-    margin: 5% auto;
-    padding: 20px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    position: relative;
-}
+
 
 .close {
     position: absolute;
@@ -735,4 +727,194 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+}
+
+.calendar-day.day-with-discount {
+    background: #F4D03F !important;
+    border: 2px solid #F1C40F;
+}
+
+.calendar-day.day-with-discount:hover {
+    background: #F1C40F !important;
+}
+
+/* Servicios con descuento en el calendario */
+.service-item.service-discount {
+    background: #E67E22 !important;
+    color: white;
+    font-weight: bold;
+}
+
+.service-item.service-discount:hover {
+    background: #D35400 !important;
+}
+
+/* Sección de descuento en modales */
+.discount-section {
+    background: #F8F9FA;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #E9ECEF;
+    margin: 15px 0;
+}
+
+.discount-section label {
+    font-weight: bold;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.discount-section input[type="checkbox"] {
+    transform: scale(1.2);
+}
+
+#discountFields,
+#bulkDiscountFields {
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #DEE2E6;
+    margin-top: 10px;
+}
+
+#discountFields label,
+#bulkDiscountFields label {
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #495057;
+}
+
+#porcentajeDescuento,
+#bulkPorcentajeDescuento {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #CED4DA;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#porcentajeDescuento:focus,
+#bulkPorcentajeDescuento:focus {
+    outline: none;
+    border-color: #80BDFF;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Indicadores visuales para servicios con descuento */
+.service-item {
+    position: relative;
+}
+
+.service-item.service-discount::after {
+    content: "🏷️";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    font-size: 10px;
+}
+
+/* Estilos para la leyenda del calendario en frontend */
+.calendar-legend .legend-item.discount {
+    color: #F39C12;
+    font-weight: bold;
+}
+
+/* Animación para días con descuento */
+@keyframes pulse-discount {
+    0% {
+        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(241, 196, 15, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(241, 196, 15, 0);
+    }
+}
+
+.calendar-day.day-with-discount {
+    animation: pulse-discount 2s infinite;
+}
+
+/* Estilos para tooltips de descuento */
+.service-item[title] {
+    cursor: help;
+}
+
+/* Mejorar la visualización de los checkboxes */
+.form-group input[type="checkbox"] {
+    width: auto !important;
+    margin-right: 8px;
+    accent-color: #0073aa;
+}
+
+/* Estilos responsivos para secciones de descuento */
+@media (max-width: 768px) {
+    .discount-section {
+        padding: 10px;
+    }
+    
+    #discountFields,
+    #bulkDiscountFields {
+        padding: 8px;
+    }
+}
+
+/* Indicador de estado activo para descuentos */
+.discount-active {
+    color: #28A745;
+    font-weight: bold;
+}
+
+.discount-inactive {
+    color: #6C757D;
+    font-style: italic;
+}
+
+/* Estilos para badges de descuento */
+.discount-badge {
+    background: #F39C12;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+/* Mejorar contraste para accesibilidad */
+.service-item.service-discount {
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Hover effects para elementos interactivos */
+.discount-section:hover {
+    border-color: #0073aa;
+    transition: border-color 0.3s ease;
+}
+
+/* Estilos para campos deshabilitados */
+.discount-section input:disabled {
+    background-color: #F8F9FA;
+    cursor: not-allowed;
+}
+
+/* Validación visual para campos de porcentaje */
+#porcentajeDescuento:invalid,
+#bulkPorcentajeDescuento:invalid {
+    border-color: #DC3545;
+}
+
+#porcentajeDescuento:valid,
+#bulkPorcentajeDescuento:valid {
+    border-color: #28A745;
+}
+
+/* Estilo para placeholder mejorado */
+#porcentajeDescuento::placeholder,
+#bulkPorcentajeDescuento::placeholder {
+    color: #6C757D;
+    font-style: italic;
 }

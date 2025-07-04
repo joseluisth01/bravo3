@@ -47,9 +47,12 @@ class ReservasCalendarAdmin {
             $first_day = sprintf('%04d-%02d-01', $year, $month);
             $last_day = date('Y-m-t', strtotime($first_day));
 
-            // Consultar servicios del mes
+            // ACTUALIZADO: Incluir campos de descuento en la consulta
             $servicios = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM $table_name 
+                "SELECT id, fecha, hora, plazas_totales, plazas_disponibles, 
+                        precio_adulto, precio_nino, precio_residente,
+                        tiene_descuento, porcentaje_descuento
+                FROM $table_name 
                 WHERE fecha BETWEEN %s AND %s 
                 AND status = 'active'
                 ORDER BY fecha, hora",
@@ -66,12 +69,14 @@ class ReservasCalendarAdmin {
 
                 $calendar_data[$servicio->fecha][] = array(
                     'id' => $servicio->id,
-                    'hora' => substr($servicio->hora, 0, 5), // Formato HH:MM
+                    'hora' => substr($servicio->hora, 0, 5),
                     'plazas_totales' => $servicio->plazas_totales,
                     'plazas_disponibles' => $servicio->plazas_disponibles,
                     'precio_adulto' => $servicio->precio_adulto,
                     'precio_nino' => $servicio->precio_nino,
-                    'precio_residente' => $servicio->precio_residente
+                    'precio_residente' => $servicio->precio_residente,
+                    'tiene_descuento' => $servicio->tiene_descuento,
+                    'porcentaje_descuento' => $servicio->porcentaje_descuento
                 );
             }
 
@@ -107,6 +112,10 @@ class ReservasCalendarAdmin {
         $precio_nino = floatval($_POST['precio_nino']);
         $precio_residente = floatval($_POST['precio_residente']);
         $service_id = isset($_POST['service_id']) ? intval($_POST['service_id']) : 0;
+        
+        // NUEVO: Campos de descuento
+        $tiene_descuento = isset($_POST['tiene_descuento']) ? 1 : 0;
+        $porcentaje_descuento = floatval($_POST['porcentaje_descuento']) ?: 0;
 
         // Validar que no exista ya un servicio en esa fecha y hora
         if ($service_id == 0) {
@@ -129,6 +138,8 @@ class ReservasCalendarAdmin {
             'precio_adulto' => $precio_adulto,
             'precio_nino' => $precio_nino,
             'precio_residente' => $precio_residente,
+            'tiene_descuento' => $tiene_descuento,
+            'porcentaje_descuento' => $porcentaje_descuento,
             'status' => 'active'
         );
 
@@ -165,7 +176,6 @@ class ReservasCalendarAdmin {
 
         $service_id = intval($_POST['service_id']);
 
-        // Por ahora eliminar directamente, luego implementaremos la verificación de reservas
         $result = $wpdb->delete($table_name, array('id' => $service_id));
 
         if ($result !== false) {
@@ -229,6 +239,10 @@ class ReservasCalendarAdmin {
         $precio_nino = floatval($_POST['precio_nino']);
         $precio_residente = floatval($_POST['precio_residente']);
         $dias_semana = isset($_POST['dias_semana']) ? $_POST['dias_semana'] : array();
+        
+        // NUEVO: Campos de descuento para bulk
+        $tiene_descuento = isset($_POST['bulk_tiene_descuento']) ? 1 : 0;
+        $porcentaje_descuento = floatval($_POST['bulk_porcentaje_descuento']) ?: 0;
 
         $fecha_actual = strtotime($fecha_inicio);
         $fecha_limite = strtotime($fecha_fin);
@@ -238,15 +252,13 @@ class ReservasCalendarAdmin {
 
         while ($fecha_actual <= $fecha_limite) {
             $fecha_str = date('Y-m-d', $fecha_actual);
-            $dia_semana = date('w', $fecha_actual); // 0=domingo, 1=lunes, etc.
+            $dia_semana = date('w', $fecha_actual);
 
-            // Verificar si este día de la semana está seleccionado
             if (empty($dias_semana) || in_array($dia_semana, $dias_semana)) {
 
                 foreach ($horarios as $horario) {
                     $hora = sanitize_text_field($horario['hora']);
 
-                    // Verificar si ya existe
                     $existing = $wpdb->get_var($wpdb->prepare(
                         "SELECT COUNT(*) FROM $table_name WHERE fecha = %s AND hora = %s",
                         $fecha_str,
@@ -262,6 +274,8 @@ class ReservasCalendarAdmin {
                             'precio_adulto' => $precio_adulto,
                             'precio_nino' => $precio_nino,
                             'precio_residente' => $precio_residente,
+                            'tiene_descuento' => $tiene_descuento,
+                            'porcentaje_descuento' => $porcentaje_descuento,
                             'status' => 'active'
                         ));
 
