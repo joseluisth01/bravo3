@@ -42,10 +42,10 @@ jQuery(document).ready(function ($) {
         });
 
         // Cambios en selectores de personas
-        $('#adultos, #residentes, #ninos-5-12, #ninos-menores').on('change', function () {
-            calculateTotalPrice();
-            validatePersonSelection();
-        });
+        $('#adultos, #residentes, #ninos-5-12, #ninos-menores').on('input change', function () {
+    calculateTotalPrice();
+    validatePersonSelection();
+});
 
         // Navegación entre pasos
         $('#btn-siguiente').on('click', function () {
@@ -291,25 +291,48 @@ function renderCalendar() {
     }
 
     function clearPricing() {
-        $('#total-discount').text('');
-        $('#total-price').text('');
-        console.log('Precios limpiados');
+    $('#total-discount').text('');
+    $('#total-price').text('');
+    $('#discount-row').hide();
+    $('#discount-message').removeClass('show');
+    console.log('Precios limpiados');
+}
+
+function updatePricingDisplay(result) {
+    console.log('Datos recibidos del servidor:', result);
+    
+    // Manejar descuentos
+    if (result.descuento > 0) {
+        $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
+        $('#discount-row').show();
+    } else {
+        $('#discount-row').hide();
+    }
+    
+    // Manejar mensaje de descuento por grupo
+    if (result.regla_descuento_aplicada && result.regla_descuento_aplicada.rule_name) {
+        const regla = result.regla_descuento_aplicada;
+        const mensaje = `Descuento del ${regla.discount_percentage}% por ${regla.rule_name.toLowerCase()}`;
+        
+        $('#discount-text').text(mensaje);
+        $('#discount-message').addClass('show');
+        
+        console.log('Descuento por grupo aplicado:', mensaje);
+    } else {
+        $('#discount-message').removeClass('show');
     }
 
-    // Nueva función para actualizar la visualización de precios
-    function updatePricingDisplay(result) {
-        if (result.descuento > 0) {
-            $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
-        } else {
-            $('#total-discount').text('');
-        }
-        $('#total-price').text(result.total.toFixed(2) + '€');
-        
-        console.log('Precios actualizados:', {
-            descuento: result.descuento,
-            total: result.total
-        });
-    }
+    window.lastDiscountRule = result.regla_descuento_aplicada;
+    
+    // Actualizar precio total
+    $('#total-price').text(result.total.toFixed(2) + '€');
+    
+    console.log('Precios actualizados:', {
+        descuento: result.descuento,
+        total: result.total,
+        regla_aplicada: result.regla_descuento_aplicada
+    });
+}
 
 
     function validatePersonSelection() {
@@ -387,7 +410,7 @@ function resetForm() {
         $('#btn-anterior').hide();
         $('#btn-siguiente').text('Siguiente →').show().prop('disabled', true);
 
-        $('#adultos, #residentes, #ninos-5-12, #ninos-menores').val(0);
+        $('#adultos, #residentes, #ninos-5-12, #ninos-menores').val(0).trigger('change');
         $('#horarios-select').html('<option value="">Selecciona primero una fecha</option>').prop('disabled', true);
 
         $('.calendar-day').removeClass('selected');
@@ -474,19 +497,23 @@ function resetForm() {
             console.error('Error obteniendo precio total:', error);
         }
         
-        const reservationData = {
-            fecha: selectedDate,
-            service_id: selectedServiceId,
-            hora_ida: service.hora,
-            adultos: adultos,
-            residentes: residentes,
-            ninos_5_12: ninos_5_12,
-            ninos_menores: ninos_menores,
-            precio_adulto: service.precio_adulto,
-            precio_nino: service.precio_nino,
-            precio_residente: service.precio_residente,
-            total_price: totalPrice
-        };
+const reservationData = {
+    fecha: selectedDate,
+    service_id: selectedServiceId,
+    hora_ida: service.hora,
+    adultos: adultos,
+    residentes: residentes,
+    ninos_5_12: ninos_5_12,
+    ninos_menores: ninos_menores,
+    precio_adulto: service.precio_adulto,
+    precio_nino: service.precio_nino,
+    precio_residente: service.precio_residente,
+    total_price: totalPrice,
+    // AÑADIR ESTOS CAMPOS:
+    descuento_grupo: $('#total-discount').text().includes('€') ? 
+        parseFloat($('#total-discount').text().replace('€', '').replace('-', '')) : 0,
+    regla_descuento_aplicada: window.lastDiscountRule || null // Variable global para guardar la última regla
+};
         
         console.log('Datos de reserva preparados:', reservationData);
         

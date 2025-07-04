@@ -347,50 +347,22 @@ class ReservasFrontend
                         <div class="persons-grid">
                             <div class="person-selector">
                                 <label>ADULTOS</label>
-                                <select id="adultos">
-                                    <option value="0">0</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                </select>
+                                <input type="number" id="adultos" min="0" max="999" value="0" class="person-input">
                             </div>
 
                             <div class="person-selector">
                                 <label>ADULTOS RESIDENTES</label>
-                                <select id="residentes">
-                                    <option value="0">0</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                </select>
+                                <input type="number" id="residentes" min="0" max="999" value="0" class="person-input">
                             </div>
 
                             <div class="person-selector">
                                 <label>NIÑOS (5/12 AÑOS)</label>
-                                <select id="ninos-5-12">
-                                    <option value="0">0</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                </select>
+                                <input type="number" id="ninos-5-12" min="0" max="999" value="0" class="person-input">
                             </div>
 
                             <div class="person-selector">
                                 <label>NIÑOS (-5 AÑOS)</label>
-                                <select id="ninos-menores">
-                                    <option value="0">0</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                </select>
+                                <input type="number" id="ninos-menores" min="0" max="999" value="0" class="person-input">
                             </div>
                         </div>
 
@@ -405,9 +377,19 @@ class ReservasFrontend
                                 <p>*Los RESIDENTES deben llevar un documento que lo acredite y presentarlo en persona.</p>
                                 <p>*En reservas de más de 10 personas se aplica DESCUENTO POR GRUPO.</p>
                             </div>
+
+                            <!-- Mensaje de descuento por grupo -->
+                            <div id="discount-message" class="discount-message">
+                                <span id="discount-text">Descuento del 15% por grupo numeroso</span>
+                            </div>
+
                             <div class="total-price">
-                                <span class="discount">DESCUENTOS: <span id="total-discount">-10€</span></span>
-                                <span class="total">TOTAL: <span id="total-price">25€</span></span>
+                                <div class="discount-row" id="discount-row" style="display: none;">
+                                    <span class="discount">DESCUENTOS: <span id="total-discount">-10€</span></span>
+                                </div>
+                                <div class="total-row">
+                                    <span class="total">TOTAL: <span id="total-price">25€</span></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -568,20 +550,19 @@ public function calculate_price()
         $total = 0;
     }
 
-    // Preparar respuesta con información detallada
-    $response_data = array(
-        'precio_base' => round($precio_base, 2),
-        'descuento' => round($descuento_total, 2),
-        'descuento_residentes' => round($descuento_residentes, 2),
-        'descuento_ninos' => round($descuento_ninos, 2),
-        'descuento_grupo' => round($descuento_grupo, 2),
-        'total' => round($total, 2),
-        'precio_adulto' => $servicio->precio_adulto,
-        'precio_nino' => $servicio->precio_nino,
-        'precio_residente' => $servicio->precio_residente,
-        'total_personas_con_plaza' => $total_personas_con_plaza,
-        'regla_descuento_aplicada' => $regla_aplicada
-    );
+$response_data = array(
+    'precio_base' => round($precio_base, 2),
+    'descuento' => round($descuento_total, 2),
+    'descuento_residentes' => round($descuento_residentes, 2),
+    'descuento_ninos' => round($descuento_ninos, 2),
+    'descuento_grupo' => round($descuento_grupo, 2), // ASEGURAR QUE ESTÉ ESTO
+    'total' => round($total, 2),
+    'precio_adulto' => $servicio->precio_adulto,
+    'precio_nino' => $servicio->precio_nino,
+    'precio_residente' => $servicio->precio_residente,
+    'total_personas_con_plaza' => $total_personas_con_plaza,
+    'regla_descuento_aplicada' => $regla_aplicada // ASEGURAR QUE ESTÉ ESTO
+);
 
     wp_send_json_success($response_data);
 }
@@ -648,6 +629,11 @@ public function calculate_price()
                         <div class="detail-row">
                             <span class="label">DESCUENTO MENORES:</span>
                             <span class="value" id="descuento-menores">-0€</span>
+                        </div>
+                        <!-- AÑADIR ESTA NUEVA FILA -->
+                        <div class="detail-row" id="descuento-grupo-row" style="display: none;">
+                            <span class="label">DESCUENTO GRUPO:</span>
+                            <span class="value" id="descuento-grupo-detalle">-0€</span>
                         </div>
                         <div class="detail-row total-row">
                             <span class="label">TOTAL RESERVA:</span>
@@ -734,6 +720,33 @@ public function calculate_price()
                 gap: 15px;
                 margin-bottom: 15px;
             }
+
+            .person-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    text-align: center;
+    font-weight: bold;
+}
+
+.person-input:focus {
+    outline: none;
+    border-color: #F4D03F;
+    box-shadow: 0 0 0 3px rgba(244, 208, 63, 0.2);
+}
+
+.person-input::-webkit-outer-spin-button,
+.person-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.person-input[type=number] {
+    -moz-appearance: textfield;
+}
 
             .form-group {
                 margin-bottom: 0;
@@ -927,9 +940,23 @@ function fillReservationDetails(data) {
         
         // Rellenar precios
         updateElementText("#importe-base", formatPrice(importeBase));
-        updateElementText("#descuento-residentes", formatPrice(-descuentoResidentes));
-        updateElementText("#descuento-menores", formatPrice(-descuentoNinos)); // CORREGIDO: Usar descuentoNinos
+updateElementText("#descuento-residentes", formatPrice(-descuentoResidentes));
+updateElementText("#descuento-menores", formatPrice(-descuentoNinos));
         updateElementText("#total-reserva", formatPrice(data.total_price || "0"));
+
+        if (data.descuento_grupo && parseFloat(data.descuento_grupo) > 0) {
+    updateElementText("#descuento-grupo-detalle", formatPrice(-parseFloat(data.descuento_grupo)));
+    jQuery("#descuento-grupo-row").show();
+    
+    // También mostrar información de la regla aplicada si está disponible
+    if (data.regla_descuento_aplicada) {
+        console.log("Regla de descuento aplicada:", data.regla_descuento_aplicada);
+    }
+} else {
+    jQuery("#descuento-grupo-row").hide();
+}
+
+updateElementText("#total-reserva", formatPrice(data.total_price || "0"));
         
         console.log("Detalles rellenados exitosamente");
         
