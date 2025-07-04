@@ -365,6 +365,8 @@ jQuery(document).ready(function ($) {
 
     // FUNCIÓN CORREGIDA: Nueva función para ir a la página de detalles
     window.proceedToDetails = function() {
+        console.log('Función proceedToDetails llamada');
+        
         // Validar que tenemos todos los datos necesarios
         if (!selectedDate || !selectedServiceId) {
             alert('Error: No hay fecha o servicio seleccionado');
@@ -390,7 +392,7 @@ jQuery(document).ready(function ($) {
             precio_adulto: service.precio_adulto,
             precio_nino: service.precio_nino,
             precio_residente: service.precio_residente,
-            total_price: $('#total-price').text().replace('€', '') // AQUÍ ESTÁ LA CORRECCIÓN
+            total_price: $('#total-price').text().replace('€', '') // CORREGIDO
         };
         
         // Guardar en sessionStorage con clave específica
@@ -411,7 +413,7 @@ jQuery(document).ready(function ($) {
         }
     };
 
-    // Hacer disponible la función findServiceById globalmente para la función proceedToDetails
+    // Hacer disponible la función findServiceById globalmente
     window.findServiceById = findServiceById;
 
 });

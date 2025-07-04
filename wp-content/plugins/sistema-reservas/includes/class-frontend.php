@@ -19,7 +19,7 @@ class ReservasFrontend
     public function enqueue_frontend_assets()
     {
         global $post;
-        
+
         // Cargar assets para formulario de reserva
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_formulario')) {
             wp_enqueue_style(
@@ -42,7 +42,7 @@ class ReservasFrontend
                 'nonce' => wp_create_nonce('reservas_nonce')
             ));
         }
-        
+
         // Cargar assets para página de detalles
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_detalles')) {
             // Crear un archivo CSS inline con los estilos específicos
@@ -50,7 +50,8 @@ class ReservasFrontend
         }
     }
 
-    private function get_details_css() {
+    private function get_details_css()
+    {
         return '
 /* Estilos para la página de detalles de reserva */
 .reservas-details-container {
@@ -430,7 +431,7 @@ class ReservasFrontend
                 </button>
             </div>
         </div>
-<?php
+    <?php
         return ob_get_clean();
     }
 
@@ -531,7 +532,7 @@ class ReservasFrontend
         ));
     }
 
-    public function render_details_form() {
+public function render_details_form() {
     ob_start();
     ?>
     <div id="reservas-detalles" class="reservas-details-container">
@@ -559,7 +560,7 @@ class ReservasFrontend
                     </div>
                 </div>
                 
-                                    <div class="details-section">
+                <div class="details-section">
                     <h3>BILLETES Y/O PERSONAS</h3>
                     <div class="detail-row">
                         <span class="label">NÚMERO DE ADULTOS:</span>
@@ -599,59 +600,41 @@ class ReservasFrontend
                     </div>
                 </div>
             </div>
-            
-            <div class="confirm-section">
-                <button type="button" class="confirm-btn" id="confirm-info-btn">
-                    CONFIRMAR INFORMACIÓN ☺
-                </button>
-            </div>
         </div>
         
-        <!-- Formularios de datos -->
-        <div class="forms-section" id="forms-section" style="display: none;">
-            <div class="forms-grid">
-                <div class="form-card">
-                    <h3>DATOS PERSONALES</h3>
-                    <form id="personal-data-form">
+        <!-- Formulario de datos personales directamente debajo -->
+        <div class="personal-data-section">
+            <div class="form-card-single">
+                <h3>DATOS PERSONALES</h3>
+                <form id="personal-data-form">
+                    <div class="form-row">
                         <div class="form-group">
                             <input type="text" name="nombre" placeholder="NOMBRE" required>
                         </div>
                         <div class="form-group">
                             <input type="text" name="apellidos" placeholder="APELLIDOS" required>
                         </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group">
                             <input type="email" name="email" placeholder="EMAIL" required>
                         </div>
                         <div class="form-group">
                             <input type="tel" name="telefono" placeholder="MÓVIL O TELÉFONO" required>
                         </div>
-                    </form>
-                </div>
-                
-                <div class="form-card">
-                    <h3>DATOS BANCARIOS</h3>
-                    <form id="payment-data-form">
-                        <div class="form-group">
-                            <input type="text" name="numero_tarjeta" placeholder="NÚMERO DE TARJETA" required>
-                        </div>
-                        <div class="form-group">
-                            <input type="text" name="cvv" placeholder="CVV" required>
-                        </div>
-                        <div class="form-group">
-                            <input type="text" name="fecha_caducidad" placeholder="FECHA DE CADUCIDAD" required>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
-            
-            <div class="final-buttons">
-                <button type="button" class="back-btn" onclick="goBackToBooking()">
-                    ← VOLVER A MODIFICAR RESERVA
-                </button>
-                <button type="button" class="process-btn" onclick="processReservation()">
-                    PROCESAR RESERVA
-                </button>
-            </div>
+        </div>
+        
+        <!-- Botones finales -->
+        <div class="final-buttons">
+            <button type="button" class="back-btn" onclick="goBackToBooking()">
+                ← VOLVER A MODIFICAR RESERVA
+            </button>
+            <button type="button" class="process-btn" onclick="processReservation()">
+                PROCESAR RESERVA
+            </button>
         </div>
     </div>
     
@@ -659,12 +642,6 @@ class ReservasFrontend
     jQuery(document).ready(function($) {
         // Cargar datos de la reserva desde sessionStorage
         loadReservationData();
-        
-        // Confirmar información
-        $('#confirm-info-btn').on('click', function() {
-            $('.details-summary').hide();
-            $('#forms-section').show();
-        });
     });
     
     function loadReservationData() {
@@ -741,6 +718,74 @@ class ReservasFrontend
         window.location.href = '/';
     }
     </script>
+    
+    <style>
+    /* Estilos adicionales para la nueva estructura */
+    .personal-data-section {
+        margin: 20px 0;
+    }
+    
+    .form-card-single {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .form-card-single h3 {
+        background: #E74C3C;
+        color: white;
+        text-align: center;
+        margin: 0;
+        padding: 15px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .form-card-single form {
+        padding: 20px;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .form-group {
+        margin-bottom: 0;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    
+    .form-group input::placeholder {
+        color: #999;
+        font-weight: normal;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #E74C3C;
+        box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+    }
+    
+    /* Responsive para formularios */
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    </style>
     <?php
     return ob_get_clean();
 }
