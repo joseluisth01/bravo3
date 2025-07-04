@@ -13,6 +13,9 @@ jQuery(document).ready(function ($) {
     function initBookingForm() {
         loadCalendar();
         setupEventListeners();
+        
+        // Limpiar precios al inicializar
+        clearPricing();
     }
 
     function setupEventListeners() {
@@ -91,7 +94,7 @@ jQuery(document).ready(function ($) {
         $('#current-month-year').text(monthYear);
     }
 
-    function renderCalendar() {
+function renderCalendar() {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
 
@@ -116,21 +119,41 @@ jQuery(document).ready(function ($) {
             calendarHTML += `<div class="calendar-day other-month">${dayNum}</div>`;
         }
 
+        // CORRECCIÓN: Obtener fecha actual de manera más precisa
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+
         // Días del mes actual
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const today = new Date();
-            const isToday = dateStr === today.toISOString().split('T')[0];
-            const isPast = new Date(dateStr) < today.setHours(0, 0, 0, 0);
+            
+            // CORRECCIÓN: Comparación más directa y precisa
+            let isPastOrToday = false;
+            
+            if (year < todayYear) {
+                // Año anterior
+                isPastOrToday = true;
+            } else if (year === todayYear && month < todayMonth) {
+                // Mismo año, mes anterior
+                isPastOrToday = true;
+            } else if (year === todayYear && month === todayMonth && day <= todayDay) {
+                // Mismo año, mismo mes, día anterior o actual
+                isPastOrToday = true;
+            }
 
             let dayClass = 'calendar-day';
             let clickHandler = '';
 
-            if (isPast) {
+            // Bloquear días pasados Y el día actual
+            if (isPastOrToday) {
                 dayClass += ' no-disponible';
+                console.log(`Día ${day} bloqueado (pasado o actual)`);
             } else if (servicesData[dateStr] && servicesData[dateStr].length > 0) {
                 dayClass += ' disponible';
                 clickHandler = `onclick="selectDate('${dateStr}')"`;
+                console.log(`Día ${day} disponible con servicios`);
 
                 // Verificar si hay ofertas (esto se puede personalizar)
                 if (day % 7 === 0) { // Ejemplo: domingos con oferta
@@ -138,6 +161,7 @@ jQuery(document).ready(function ($) {
                 }
             } else {
                 dayClass += ' no-disponible';
+                console.log(`Día ${day} no disponible (sin servicios)`);
             }
 
             if (selectedDate === dateStr) {
@@ -148,6 +172,10 @@ jQuery(document).ready(function ($) {
         }
 
         $('#calendar-grid').html(calendarHTML);
+
+        // Debug: Mostrar información de la fecha actual
+        console.log(`Fecha actual: ${todayDay}/${todayMonth + 1}/${todayYear}`);
+        console.log(`Mes del calendario: ${month + 1}/${year}`);
 
         // Reasignar eventos de clic después de regenerar el HTML
         setupCalendarClickEvents();
@@ -214,12 +242,24 @@ jQuery(document).ready(function ($) {
     }
 
     function calculateTotalPrice() {
-        if (!selectedServiceId) return;
+        if (!selectedServiceId) {
+            // Si no hay servicio seleccionado, limpiar precios
+            clearPricing();
+            return;
+        }
 
         const adultos = parseInt($('#adultos').val()) || 0;
         const residentes = parseInt($('#residentes').val()) || 0;
         const ninos512 = parseInt($('#ninos-5-12').val()) || 0;
         const ninosMenores = parseInt($('#ninos-menores').val()) || 0;
+
+        const totalPersonas = adultos + residentes + ninos512 + ninosMenores;
+
+        // Si no hay personas seleccionadas, limpiar precios
+        if (totalPersonas === 0) {
+            clearPricing();
+            return;
+        }
 
         const formData = new FormData();
         formData.append('action', 'calculate_price');
@@ -238,14 +278,39 @@ jQuery(document).ready(function ($) {
             .then(data => {
                 if (data.success) {
                     const result = data.data;
-                    $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
-                    $('#total-price').text(result.total.toFixed(2) + '€');
+                    updatePricingDisplay(result);
+                } else {
+                    console.error('Error calculando precio:', data);
+                    clearPricing();
                 }
             })
             .catch(error => {
                 console.error('Error calculando precio:', error);
+                clearPricing();
             });
     }
+
+    function clearPricing() {
+        $('#total-discount').text('');
+        $('#total-price').text('');
+        console.log('Precios limpiados');
+    }
+
+    // Nueva función para actualizar la visualización de precios
+    function updatePricingDisplay(result) {
+        if (result.descuento > 0) {
+            $('#total-discount').text('-' + result.descuento.toFixed(2) + '€');
+        } else {
+            $('#total-discount').text('');
+        }
+        $('#total-price').text(result.total.toFixed(2) + '€');
+        
+        console.log('Precios actualizados:', {
+            descuento: result.descuento,
+            total: result.total
+        });
+    }
+
 
     function validatePersonSelection() {
         const adultos = parseInt($('#adultos').val()) || 0;
@@ -312,7 +377,7 @@ jQuery(document).ready(function ($) {
         }
     }
 
-    function resetForm() {
+function resetForm() {
         currentStep = 1;
         selectedDate = null;
         selectedServiceId = null;
@@ -327,7 +392,8 @@ jQuery(document).ready(function ($) {
 
         $('.calendar-day').removeClass('selected');
 
-        calculateTotalPrice();
+        // Limpiar precios al resetear
+        clearPricing();
     }
 
     // Función global para el botón de completar reserva
@@ -363,13 +429,18 @@ jQuery(document).ready(function ($) {
         }
     };
 
-    // FUNCIÓN CORREGIDA: Nueva función para ir a la página de detalles
+    // FUNCIÓN COMPLETAMENTE REESCRITA: Nueva función para ir a la página de detalles
     window.proceedToDetails = function() {
-        console.log('Función proceedToDetails llamada');
+        console.log('=== INICIANDO proceedToDetails ===');
+        
+        // Debug: Mostrar URL actual
+        console.log('URL actual:', window.location.href);
+        console.log('Pathname actual:', window.location.pathname);
         
         // Validar que tenemos todos los datos necesarios
         if (!selectedDate || !selectedServiceId) {
             alert('Error: No hay fecha o servicio seleccionado');
+            console.log('selectedDate:', selectedDate, 'selectedServiceId:', selectedServiceId);
             return;
         }
         
@@ -377,43 +448,92 @@ jQuery(document).ready(function ($) {
         const service = findServiceById(selectedServiceId);
         if (!service) {
             alert('Error: No se encontraron datos del servicio');
+            console.log('Servicio no encontrado para ID:', selectedServiceId);
             return;
         }
+        console.log('Servicio encontrado:', service);
         
-        // Recopilar todos los datos usando $ en lugar de jQuery
+        // Recopilar todos los datos del formulario
+        const adultos = parseInt($('#adultos').val()) || 0;
+        const residentes = parseInt($('#residentes').val()) || 0;
+        const ninos_5_12 = parseInt($('#ninos-5-12').val()) || 0;
+        const ninos_menores = parseInt($('#ninos-menores').val()) || 0;
+        
+        // Obtener el precio total con mejor manejo de errores
+        let totalPrice = '0';
+        try {
+            const totalPriceElement = $('#total-price');
+            if (totalPriceElement.length > 0) {
+                const totalPriceText = totalPriceElement.text();
+                console.log('Texto precio total:', totalPriceText);
+                totalPrice = totalPriceText.replace('€', '').trim();
+            } else {
+                console.log('Elemento #total-price no encontrado');
+            }
+        } catch (error) {
+            console.error('Error obteniendo precio total:', error);
+        }
+        
         const reservationData = {
             fecha: selectedDate,
             service_id: selectedServiceId,
-            hora_ida: service.hora, // Obtener hora real del servicio
-            adultos: parseInt($('#adultos').val()) || 0,
-            residentes: parseInt($('#residentes').val()) || 0,
-            ninos_5_12: parseInt($('#ninos-5-12').val()) || 0,
-            ninos_menores: parseInt($('#ninos-menores').val()) || 0,
+            hora_ida: service.hora,
+            adultos: adultos,
+            residentes: residentes,
+            ninos_5_12: ninos_5_12,
+            ninos_menores: ninos_menores,
             precio_adulto: service.precio_adulto,
             precio_nino: service.precio_nino,
             precio_residente: service.precio_residente,
-            total_price: $('#total-price').text().replace('€', '') // CORREGIDO
+            total_price: totalPrice
         };
         
-        // Guardar en sessionStorage con clave específica
-        sessionStorage.setItem('reservationData', JSON.stringify(reservationData));
+        console.log('Datos de reserva preparados:', reservationData);
         
-        // Log para debug
-        console.log('Datos guardados:', reservationData);
-        
-        // Construir URL correcta
-        const currentUrl = window.location.href;
-        const baseUrl = currentUrl.substring(0, currentUrl.indexOf('/', 8));
-        const pathParts = window.location.pathname.split('/').filter(part => part !== '');
-        
-        if (pathParts.length > 0 && pathParts[0] !== '') {
-            window.location.href = baseUrl + '/' + pathParts[0] + '/detalles-reserva/';
-        } else {
-            window.location.href = baseUrl + '/detalles-reserva/';
+        // Guardar en sessionStorage con mejor manejo de errores
+        try {
+            const dataString = JSON.stringify(reservationData);
+            sessionStorage.setItem('reservationData', dataString);
+            console.log('Datos guardados en sessionStorage exitosamente');
+            
+            // Verificar que se guardó correctamente
+            const savedData = sessionStorage.getItem('reservationData');
+            console.log('Verificación datos guardados:', savedData);
+        } catch (error) {
+            console.error('Error guardando en sessionStorage:', error);
+            alert('Error guardando los datos de la reserva: ' + error.message);
+            return;
         }
+        
+        // NUEVA LÓGICA: Usar la función de WordPress para obtener URLs
+        let targetUrl;
+        
+        // Método 1: Intentar detectar automáticamente
+        const currentPath = window.location.pathname;
+        console.log('Path actual:', currentPath);
+        
+        if (currentPath.includes('/bravo/')) {
+            // Estamos en el subdirectorio bravo
+            targetUrl = window.location.origin + '/bravo/detalles-reserva/';
+        } else if (currentPath.includes('/')) {
+            // Detectar otros subdirectorios
+            const pathParts = currentPath.split('/').filter(part => part !== '');
+            if (pathParts.length > 0 && pathParts[0] !== 'detalles-reserva') {
+                targetUrl = window.location.origin + '/' + pathParts[0] + '/detalles-reserva/';
+            } else {
+                targetUrl = window.location.origin + '/detalles-reserva/';
+            }
+        } else {
+            targetUrl = window.location.origin + '/detalles-reserva/';
+        }
+        
+        console.log('URL destino calculada:', targetUrl);
+        console.log('Redirigiendo a:', targetUrl);
+        window.location.href = targetUrl;
     };
 
-    // Hacer disponible la función findServiceById globalmente
+    // Hacer disponibles las funciones globalmente
+    window.selectDate = selectDate;
     window.findServiceById = findServiceById;
 
 });

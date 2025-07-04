@@ -506,287 +506,495 @@ class ReservasFrontend
             wp_send_json_error('Servicio no encontrado');
         }
 
-        $total_personas = $adultos + $residentes + $ninos_5_12;
+        // Calcular precio base (sin descuentos)
         $precio_base = 0;
-        $descuento = 0;
+        $descuento_total = 0;
 
-        // Calcular precio base
+        // Adultos normales (precio completo)
         $precio_base += $adultos * $servicio->precio_adulto;
-        $precio_base += $ninos_5_12 * $servicio->precio_nino;
-        $precio_base += $residentes * $servicio->precio_residente;
+
+        // Adultos residentes (precio reducido + cálculo de descuento)
+        $precio_base += $residentes * $servicio->precio_adulto; // Precio base como adulto normal
+        $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
+        $descuento_total += $descuento_residentes;
+
+        // Niños 5-12 años (precio reducido + cálculo de descuento)
+        $precio_base += $ninos_5_12 * $servicio->precio_adulto; // Precio base como adulto
+        $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
+        $descuento_total += $descuento_ninos;
+
+        // Niños menores de 5 años (gratis - no ocupan plaza)
+        // No se añade nada al precio base ni al descuento
+
+        // Calcular total de personas que ocupan plaza
+        $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
 
         // Descuento por grupo (más de 10 personas)
-        if ($total_personas > 10) {
-            $descuento = $precio_base * 0.15; // 15% descuento
+        $descuento_grupo = 0;
+        if ($total_personas_con_plaza > 10) {
+            $descuento_grupo = ($precio_base - $descuento_total) * 0.15; // 15% sobre el subtotal
+            $descuento_total += $descuento_grupo;
         }
 
-        $total = $precio_base - $descuento;
+        // Calcular total final
+        $total = $precio_base - $descuento_total;
+
+        // Asegurar que el total no sea negativo
+        if ($total < 0) {
+            $total = 0;
+        }
 
         wp_send_json_success(array(
             'precio_base' => $precio_base,
-            'descuento' => $descuento,
+            'descuento' => $descuento_total,
+            'descuento_residentes' => $descuento_residentes,
+            'descuento_ninos' => $descuento_ninos,
+            'descuento_grupo' => $descuento_grupo,
             'total' => $total,
             'precio_adulto' => $servicio->precio_adulto,
             'precio_nino' => $servicio->precio_nino,
-            'precio_residente' => $servicio->precio_residente
+            'precio_residente' => $servicio->precio_residente,
+            'total_personas_con_plaza' => $total_personas_con_plaza
         ));
     }
 
-public function render_details_form() {
-    ob_start();
+    public function render_details_form()
+    {
+        ob_start();
     ?>
-    <div id="reservas-detalles" class="reservas-details-container">
-        <!-- Detalles de la reserva -->
-        <div class="details-summary">
-            <h2>DETALLES DE LA RESERVA</h2>
-            <div class="details-grid">
-                <div class="details-section">
-                    <h3>FECHAS Y HORAS</h3>
-                    <div class="detail-row">
-                        <span class="label">FECHA AUTOBÚS IDA:</span>
-                        <span class="value" id="fecha-ida">-</span>
+        <div id="reservas-detalles" class="reservas-details-container">
+            <!-- Detalles de la reserva -->
+            <div class="details-summary">
+                <h2>DETALLES DE LA RESERVA</h2>
+                <div class="details-grid">
+                    <div class="details-section">
+                        <h3>FECHAS Y HORAS</h3>
+                        <div class="detail-row">
+                            <span class="label">FECHA AUTOBÚS IDA:</span>
+                            <span class="value" id="fecha-ida">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">HORA AUTOBÚS IDA:</span>
+                            <span class="value" id="hora-ida">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">FECHA AUTOBÚS VUELTA:</span>
+                            <span class="value" id="fecha-vuelta">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">HORA AUTOBÚS VUELTA:</span>
+                            <span class="value" id="hora-vuelta">-</span>
+                        </div>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">HORA AUTOBÚS IDA:</span>
-                        <span class="value" id="hora-ida">-</span>
+
+                    <div class="details-section">
+                        <h3>BILLETES Y/O PERSONAS</h3>
+                        <div class="detail-row">
+                            <span class="label">NÚMERO DE ADULTOS:</span>
+                            <span class="value" id="num-adultos">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">NÚMERO DE RESIDENTES:</span>
+                            <span class="value" id="num-residentes">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">NÚMERO DE NIÑOS (5/12 AÑOS):</span>
+                            <span class="value" id="num-ninos-5-12">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">NÚMERO DE NIÑOS (-5 AÑOS):</span>
+                            <span class="value" id="num-ninos-menores">-</span>
+                        </div>
                     </div>
-                    <div class="detail-row">
-                        <span class="label">FECHA AUTOBÚS VUELTA:</span>
-                        <span class="value" id="fecha-vuelta">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">HORA AUTOBÚS VUELTA:</span>
-                        <span class="value" id="hora-vuelta">-</span>
-                    </div>
-                </div>
-                
-                <div class="details-section">
-                    <h3>BILLETES Y/O PERSONAS</h3>
-                    <div class="detail-row">
-                        <span class="label">NÚMERO DE ADULTOS:</span>
-                        <span class="value" id="num-adultos">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">NÚMERO DE RESIDENTES:</span>
-                        <span class="value" id="num-residentes">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">NÚMERO DE NIÑOS (5/12 AÑOS):</span>
-                        <span class="value" id="num-ninos-5-12">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">NÚMERO DE NIÑOS (-5 AÑOS):</span>
-                        <span class="value" id="num-ninos-menores">-</span>
-                    </div>
-                </div>
-                
-                <div class="details-section">
-                    <h3>PRECIOS</h3>
-                    <div class="detail-row">
-                        <span class="label">IMPORTE BASE:</span>
-                        <span class="value" id="importe-base">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">DESCUENTO RESIDENTES:</span>
-                        <span class="value" id="descuento-residentes">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">DESCUENTO MENORES:</span>
-                        <span class="value" id="descuento-menores">-0€</span>
-                    </div>
-                    <div class="detail-row total-row">
-                        <span class="label">TOTAL RESERVA:</span>
-                        <span class="value total-price" id="total-reserva">-</span>
+
+                    <div class="details-section">
+                        <h3>PRECIOS</h3>
+                        <div class="detail-row">
+                            <span class="label">IMPORTE BASE:</span>
+                            <span class="value" id="importe-base">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">DESCUENTO RESIDENTES:</span>
+                            <span class="value" id="descuento-residentes">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">DESCUENTO MENORES:</span>
+                            <span class="value" id="descuento-menores">-0€</span>
+                        </div>
+                        <div class="detail-row total-row">
+                            <span class="label">TOTAL RESERVA:</span>
+                            <span class="value total-price" id="total-reserva">-</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Formulario de datos personales directamente debajo -->
-        <div class="personal-data-section">
-            <div class="form-card-single">
-                <h3>DATOS PERSONALES</h3>
-                <form id="personal-data-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <input type="text" name="nombre" placeholder="NOMBRE" required>
+
+            <!-- Formulario de datos personales directamente debajo -->
+            <div class="personal-data-section">
+                <div class="form-card-single">
+                    <h3>DATOS PERSONALES</h3>
+                    <form id="personal-data-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <input type="text" name="nombre" placeholder="NOMBRE" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" name="apellidos" placeholder="APELLIDOS" required>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <input type="text" name="apellidos" placeholder="APELLIDOS" required>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <input type="email" name="email" placeholder="EMAIL" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="tel" name="telefono" placeholder="MÓVIL O TELÉFONO" required>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <input type="email" name="email" placeholder="EMAIL" required>
-                        </div>
-                        <div class="form-group">
-                            <input type="tel" name="telefono" placeholder="MÓVIL O TELÉFONO" required>
-                        </div>
-                    </div>
-                </form>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Botones finales -->
+            <div class="final-buttons">
+                <button type="button" class="back-btn" onclick="goBackToBooking()">
+                    ← VOLVER A MODIFICAR RESERVA
+                </button>
+                <button type="button" class="process-btn" onclick="processReservation()">
+                    PROCESAR RESERVA
+                </button>
             </div>
         </div>
-        
-        <!-- Botones finales -->
-        <div class="final-buttons">
-            <button type="button" class="back-btn" onclick="goBackToBooking()">
-                ← VOLVER A MODIFICAR RESERVA
-            </button>
-            <button type="button" class="process-btn" onclick="processReservation()">
-                PROCESAR RESERVA
-            </button>
-        </div>
-    </div>
-    
-    <script>
-    jQuery(document).ready(function($) {
-        // Cargar datos de la reserva desde sessionStorage
-        loadReservationData();
-    });
-    
-    function loadReservationData() {
-        try {
-            const data = JSON.parse(sessionStorage.getItem('reservationData') || '{}');
-            console.log('Datos recuperados:', data);
-            
-            if (Object.keys(data).length === 0) {
-                alert('No hay datos de reserva. Redirigiendo al formulario...');
-                window.history.back();
-                return;
+
+        <script>
+            <?php echo $this->get_details_page_script(); ?>
+        </script>
+
+        <style>
+            <?php echo $this->get_details_css(); ?>
+
+            /* Estilos adicionales para la nueva estructura */
+            .personal-data-section {
+                margin: 20px 0;
             }
-            
-            // Formatear fecha para mostrar
-            const fechaFormateada = data.fecha ? new Date(data.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '-';
-            
-            // Rellenar fechas y horas
-            $('#fecha-ida').text(fechaFormateada);
-            $('#hora-ida').text(data.hora_ida || '-');
-            $('#fecha-vuelta').text(fechaFormateada);
-            $('#hora-vuelta').text('13:30'); // Hora fija de vuelta
-            
-            // Rellenar personas
-            $('#num-adultos').text(data.adultos || 0);
-            $('#num-residentes').text(data.residentes || 0);
-            $('#num-ninos-5-12').text(data.ninos_5_12 || 0);
-            $('#num-ninos-menores').text(data.ninos_menores || 0);
-            
-            // Calcular precios
-            const precioAdulto = parseFloat(data.precio_adulto) || 0;
-            const precioNino = parseFloat(data.precio_nino) || 0;
-            const precioResidente = parseFloat(data.precio_residente) || 0;
-            
-            const adultos = parseInt(data.adultos) || 0;
-            const residentes = parseInt(data.residentes) || 0;
-            const ninos = parseInt(data.ninos_5_12) || 0;
-            
-            const importeBase = (adultos * precioAdulto) + (residentes * precioResidente) + (ninos * precioNino);
-            const descuentoResidentes = residentes * (precioAdulto - precioResidente);
-            
-            $('#importe-base').text(importeBase.toFixed(2) + '€');
-            $('#descuento-residentes').text('-' + descuentoResidentes.toFixed(2) + '€');
-            $('#total-reserva').text((data.total_price || '0') + '€');
-            
-        } catch (error) {
-            console.error('Error cargando datos:', error);
-            alert('Error cargando los datos de la reserva');
-        }
+
+            .form-card-single {
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .form-card-single h3 {
+                background: #E74C3C;
+                color: white;
+                text-align: center;
+                margin: 0;
+                padding: 15px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+
+            .form-card-single form {
+                padding: 20px;
+            }
+
+            .form-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+
+            .form-group {
+                margin-bottom: 0;
+            }
+
+            .form-group input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+
+            .form-group input::placeholder {
+                color: #999;
+                font-weight: normal;
+            }
+
+            .form-group input:focus {
+                outline: none;
+                border-color: #E74C3C;
+                box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+            }
+
+            /* Responsive para formularios */
+            @media (max-width: 768px) {
+                .form-row {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+<?php
+        return ob_get_clean();
     }
+
+    // Nuevo método para obtener el script de la página de detalles
+    private function get_details_page_script()
+    {
+        return '
+jQuery(document).ready(function($) {
+    console.log("=== PÁGINA DE DETALLES CARGADA ===");
     
-    function goBackToBooking() {
-        window.history.back();
-    }
+    // Cargar datos de la reserva desde sessionStorage
+    loadReservationData();
+});
+
+function loadReservationData() {
+    console.log("=== INICIANDO CARGA DE DATOS ===");
     
-    function processReservation() {
-        // Validar formularios
-        const nombre = $('[name="nombre"]').val();
-        const apellidos = $('[name="apellidos"]').val();
-        const email = $('[name="email"]').val();
-        const telefono = $('[name="telefono"]').val();
-        
-        if (!nombre || !apellidos || !email || !telefono) {
-            alert('Por favor, completa todos los campos de datos personales.');
+    try {
+        // Verificar si sessionStorage está disponible
+        if (typeof(Storage) === "undefined") {
+            console.error("SessionStorage no está disponible en este navegador");
+            alert("Tu navegador no soporta sessionStorage. Por favor, usa un navegador más moderno.");
             return;
         }
         
-        // Aquí procesarías la reserva
-        alert('Reserva procesada correctamente! (Función en desarrollo)');
+        // Intentar obtener los datos
+        const dataString = sessionStorage.getItem("reservationData");
+        console.log("Datos en sessionStorage (string):", dataString);
         
-        // Limpiar sessionStorage
-        sessionStorage.removeItem('reservationData');
-        
-        // Redirigir a página de confirmación o inicio
-        window.location.href = '/';
-    }
-    </script>
-    
-    <style>
-    /* Estilos adicionales para la nueva estructura */
-    .personal-data-section {
-        margin: 20px 0;
-    }
-    
-    .form-card-single {
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        max-width: 600px;
-        margin: 0 auto;
-    }
-    
-    .form-card-single h3 {
-        background: #E74C3C;
-        color: white;
-        text-align: center;
-        margin: 0;
-        padding: 15px;
-        font-size: 16px;
-        font-weight: bold;
-    }
-    
-    .form-card-single form {
-        padding: 20px;
-    }
-    
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-    
-    .form-group {
-        margin-bottom: 0;
-    }
-    
-    .form-group input {
-        width: 100%;
-        padding: 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        box-sizing: border-box;
-    }
-    
-    .form-group input::placeholder {
-        color: #999;
-        font-weight: normal;
-    }
-    
-    .form-group input:focus {
-        outline: none;
-        border-color: #E74C3C;
-        box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
-    }
-    
-    /* Responsive para formularios */
-    @media (max-width: 768px) {
-        .form-row {
-            grid-template-columns: 1fr;
+        if (!dataString || dataString === "null" || dataString === "undefined") {
+            console.error("No hay datos en sessionStorage");
+            alert("No hay datos de reserva. Redirigiendo al formulario...");
+            // Intentar volver a la página anterior
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // Redireccionar a la página principal o formulario
+                window.location.href = "/";
+            }
+            return;
         }
+        
+        // Intentar parsear los datos JSON
+        let data;
+        try {
+            data = JSON.parse(dataString);
+            console.log("Datos parseados exitosamente:", data);
+        } catch (parseError) {
+            console.error("Error parseando JSON:", parseError);
+            console.error("String que falló:", dataString);
+            alert("Error en los datos de reserva. Por favor, vuelve a hacer la reserva.");
+            window.history.back();
+            return;
+        }
+        
+        // Verificar que los datos tienen la estructura esperada
+        if (!data || typeof data !== "object") {
+            console.error("Datos no válidos:", data);
+            alert("Datos de reserva no válidos. Por favor, vuelve a hacer la reserva.");
+            window.history.back();
+            return;
+        }
+        
+        // Verificar campos críticos
+        const requiredFields = ["fecha", "service_id", "hora_ida"];
+        const missingFields = requiredFields.filter(field => !data[field]);
+        
+        if (missingFields.length > 0) {
+            console.error("Campos requeridos faltantes:", missingFields);
+            alert(`Faltan datos críticos: ${missingFields.join(", ")}. Por favor, vuelve a hacer la reserva.`);
+            window.history.back();
+            return;
+        }
+        
+        console.log("Validación exitosa. Rellenando formulario...");
+        
+        // Rellenar los datos en la página
+        fillReservationDetails(data);
+        
+    } catch (error) {
+        console.error("Error general en loadReservationData:", error);
+        alert("Error cargando los datos de la reserva: " + error.message);
     }
-    </style>
-    <?php
-    return ob_get_clean();
 }
+
+function fillReservationDetails(data) {
+    console.log("=== RELLENANDO DETALLES ===");
+    
+    try {
+        // Formatear fecha para mostrar
+        let fechaFormateada = "-";
+        if (data.fecha) {
+            try {
+                // Crear fecha y formatear para español
+                const fechaObj = new Date(data.fecha + "T00:00:00");
+                fechaFormateada = fechaObj.toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                });
+            } catch (dateError) {
+                console.error("Error formateando fecha:", dateError);
+                fechaFormateada = data.fecha; // Usar fecha original si falla el formateo
+            }
+        }
+        
+        console.log("Fecha formateada:", fechaFormateada);
+        
+        // Rellenar fechas y horas
+        updateElementText("#fecha-ida", fechaFormateada);
+        updateElementText("#hora-ida", data.hora_ida || "-");
+        updateElementText("#fecha-vuelta", fechaFormateada);
+        updateElementText("#hora-vuelta", "13:30"); // Hora fija de vuelta
+        
+        // Rellenar personas
+        updateElementText("#num-adultos", data.adultos || 0);
+        updateElementText("#num-residentes", data.residentes || 0);
+        updateElementText("#num-ninos-5-12", data.ninos_5_12 || 0);
+        updateElementText("#num-ninos-menores", data.ninos_menores || 0);
+        
+        // Calcular precios
+        const precioAdulto = parseFloat(data.precio_adulto) || 0;
+        const precioNino = parseFloat(data.precio_nino) || 0;
+        const precioResidente = parseFloat(data.precio_residente) || 0;
+        
+        const adultos = parseInt(data.adultos) || 0;
+        const residentes = parseInt(data.residentes) || 0;
+        const ninos_5_12 = parseInt(data.ninos_5_12) || 0; // CORRECCIÓN: Variable definida correctamente
+        const ninos_menores = parseInt(data.ninos_menores) || 0;
+        
+        // CORRECCIÓN: Calcular importes base correctamente
+        const importeAdultos = adultos * precioAdulto;
+        const importeResidentes = residentes * precioAdulto; // Base como adulto normal
+        const importeNinos = ninos_5_12 * precioAdulto; // Base como adulto normal - CORREGIDO
+        const importeBase = importeAdultos + importeResidentes + importeNinos;
+        
+        // CORRECCIÓN: Calcular descuentos correctamente
+        // Descuento residentes: diferencia entre precio adulto y precio residente
+        const descuentoResidentes = residentes * (precioAdulto - precioResidente);
+        
+        // CORRECCIÓN: Descuento niños 5-12: diferencia entre precio adulto y precio niño
+        const descuentoNinos = ninos_5_12 * (precioAdulto - precioNino);
+        
+        console.log("Cálculos detallados:", {
+            adultos: adultos,
+            residentes: residentes, 
+            ninos_5_12: ninos_5_12,
+            ninos_menores: ninos_menores,
+            precioAdulto: precioAdulto,
+            precioNino: precioNino,
+            precioResidente: precioResidente,
+            importeBase: importeBase,
+            descuentoResidentes: descuentoResidentes,
+            descuentoNinos: descuentoNinos,
+            totalPrice: data.total_price
+        });
+        
+        // Rellenar precios
+        updateElementText("#importe-base", formatPrice(importeBase));
+        updateElementText("#descuento-residentes", formatPrice(-descuentoResidentes));
+        updateElementText("#descuento-menores", formatPrice(-descuentoNinos)); // CORREGIDO: Usar descuentoNinos
+        updateElementText("#total-reserva", formatPrice(data.total_price || "0"));
+        
+        console.log("Detalles rellenados exitosamente");
+        
+    } catch (error) {
+        console.error("Error rellenando detalles:", error);
+        alert("Error mostrando los detalles de la reserva: " + error.message);
+    }
+}
+
+// Función auxiliar para actualizar texto de elementos con manejo de errores
+function updateElementText(selector, value) {
+    try {
+        const element = jQuery(selector);
+        if (element.length > 0) {
+            element.text(value);
+            console.log(`Actualizado ${selector} con: ${value}`);
+        } else {
+            console.warn(`Elemento no encontrado: ${selector}`);
+        }
+    } catch (error) {
+        console.error(`Error actualizando ${selector}:`, error);
+    }
+}
+
+// Función auxiliar para formatear precios
+function formatPrice(price) {
+    try {
+        const numPrice = parseFloat(price) || 0;
+        return numPrice.toFixed(2) + "€";
+    } catch (error) {
+        console.error("Error formateando precio:", error);
+        return "0.00€";
+    }
+}
+
+function goBackToBooking() {
+    console.log("Volviendo a la página anterior");
+    
+    // Limpiar sessionStorage
+    try {
+        sessionStorage.removeItem("reservationData");
+        console.log("SessionStorage limpiado");
+    } catch (error) {
+        console.error("Error limpiando sessionStorage:", error);
+    }
+    
+    // Volver a la página anterior
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        // Si no hay historial, ir a la página principal
+        window.location.href = "/";
+    }
+}
+
+function processReservation() {
+    console.log("=== PROCESANDO RESERVA ===");
+    
+    // Validar formularios
+    const nombre = jQuery("[name=\"nombre\"]").val();
+    const apellidos = jQuery("[name=\"apellidos\"]").val();
+    const email = jQuery("[name=\"email\"]").val();
+    const telefono = jQuery("[name=\"telefono\"]").val();
+    
+    console.log("Datos del formulario:", { nombre, apellidos, email, telefono });
+    
+    if (!nombre || !apellidos || !email || !telefono) {
+        alert("Por favor, completa todos los campos de datos personales.");
+        return;
+    }
+    
+    // Validar email básico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert("Por favor, introduce un email válido.");
+        return;
+    }
+    
+    // Aquí procesarías la reserva real
+    alert("Reserva procesada correctamente!\\n\\n(Función en desarrollo - aquí se integraría con el sistema de pago)");
+    
+    // Limpiar sessionStorage
+    try {
+        sessionStorage.removeItem("reservationData");
+        console.log("SessionStorage limpiado después de procesar");
+    } catch (error) {
+        console.error("Error limpiando sessionStorage:", error);
+    }
+    
+    // Redirigir a página de confirmación o inicio
+    // window.location.href = "/confirmacion-reserva/";
+    window.location.href = "/";
+}
+    ';
+    }
 }
