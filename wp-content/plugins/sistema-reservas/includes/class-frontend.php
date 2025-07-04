@@ -5,7 +5,7 @@ class ReservasFrontend
     public function __construct()
     {
         add_shortcode('reservas_formulario', array($this, 'render_booking_form'));
-            add_shortcode('reservas_detalles', array($this, 'render_details_form')); // ← AÑADIR ESTA LÍNEA
+        add_shortcode('reservas_detalles', array($this, 'render_details_form'));
 
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
 
@@ -19,6 +19,8 @@ class ReservasFrontend
     public function enqueue_frontend_assets()
     {
         global $post;
+        
+        // Cargar assets para formulario de reserva
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_formulario')) {
             wp_enqueue_style(
                 'reservas-frontend-style',
@@ -40,6 +42,259 @@ class ReservasFrontend
                 'nonce' => wp_create_nonce('reservas_nonce')
             ));
         }
+        
+        // Cargar assets para página de detalles
+        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_detalles')) {
+            // Crear un archivo CSS inline con los estilos específicos
+            wp_add_inline_style('wp-block-library', $this->get_details_css());
+        }
+    }
+
+    private function get_details_css() {
+        return '
+/* Estilos para la página de detalles de reserva */
+.reservas-details-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #F5F5F5;
+    min-height: 100vh;
+}
+
+.details-summary h2 {
+    background: #8B4513;
+    color: white;
+    text-align: center;
+    margin: 0 0 20px 0;
+    padding: 20px;
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    background: white;
+    border: 2px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.details-section {
+    padding: 20px;
+    border-right: 1px solid #ddd;
+}
+
+.details-section:last-child {
+    border-right: none;
+}
+
+.details-section h3 {
+    background: #E8E8E8;
+    color: #666;
+    text-align: center;
+    margin: -20px -20px 20px -20px;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    border-bottom: 1px solid #ddd;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 8px 0;
+}
+
+.detail-row .label {
+    color: #8B4513;
+    font-weight: bold;
+    font-size: 14px;
+    flex: 1;
+}
+
+.detail-row .value {
+    color: #333;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: right;
+    min-width: 80px;
+}
+
+.total-row {
+    border-top: 2px solid #ddd;
+    margin-top: 15px;
+    padding-top: 15px;
+}
+
+.total-row .label {
+    font-size: 16px;
+    color: #000;
+}
+
+.total-row .value {
+    font-size: 18px;
+    color: #E74C3C;
+    font-weight: bold;
+}
+
+.confirm-section {
+    text-align: center;
+    margin: 30px 0;
+}
+
+.confirm-btn {
+    background: #F4D03F;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.confirm-btn:hover {
+    background: #F1C40F;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.forms-section {
+    margin-top: 30px;
+}
+
+.forms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-card h3 {
+    background: #E74C3C;
+    color: white;
+    text-align: center;
+    margin: 0;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.form-card form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.form-group input::placeholder {
+    color: #999;
+    font-weight: normal;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #E74C3C;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+}
+
+.final-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.back-btn {
+    background: #6C757D;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex: 1;
+}
+
+.back-btn:hover {
+    background: #5A6268;
+}
+
+.process-btn {
+    background: #28A745;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex: 1;
+}
+
+.process-btn:hover {
+    background: #218838;
+}
+
+@media (max-width: 768px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .details-section {
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .details-section:last-child {
+        border-bottom: none;
+    }
+    
+    .forms-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .final-buttons {
+        flex-direction: column;
+    }
+    
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .detail-row .value {
+        text-align: left;
+    }
+}
+        ';
     }
 
     public function render_booking_form()
@@ -276,8 +531,6 @@ class ReservasFrontend
         ));
     }
 
-
-
     public function render_details_form() {
     ob_start();
     ?>
@@ -306,7 +559,7 @@ class ReservasFrontend
                     </div>
                 </div>
                 
-                <div class="details-section">
+                                    <div class="details-section">
                     <h3>BILLETES Y/O PERSONAS</h3>
                     <div class="detail-row">
                         <span class="label">NÚMERO DE ADULTOS:</span>
@@ -415,28 +668,51 @@ class ReservasFrontend
     });
     
     function loadReservationData() {
-        const data = JSON.parse(sessionStorage.getItem('reservationData') || '{}');
-        
-        if (Object.keys(data).length === 0) {
-            alert('No hay datos de reserva. Redirigiendo al formulario...');
-            window.history.back();
-            return;
+        try {
+            const data = JSON.parse(sessionStorage.getItem('reservationData') || '{}');
+            console.log('Datos recuperados:', data);
+            
+            if (Object.keys(data).length === 0) {
+                alert('No hay datos de reserva. Redirigiendo al formulario...');
+                window.history.back();
+                return;
+            }
+            
+            // Formatear fecha para mostrar
+            const fechaFormateada = data.fecha ? new Date(data.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '-';
+            
+            // Rellenar fechas y horas
+            $('#fecha-ida').text(fechaFormateada);
+            $('#hora-ida').text(data.hora_ida || '-');
+            $('#fecha-vuelta').text(fechaFormateada);
+            $('#hora-vuelta').text('13:30'); // Hora fija de vuelta
+            
+            // Rellenar personas
+            $('#num-adultos').text(data.adultos || 0);
+            $('#num-residentes').text(data.residentes || 0);
+            $('#num-ninos-5-12').text(data.ninos_5_12 || 0);
+            $('#num-ninos-menores').text(data.ninos_menores || 0);
+            
+            // Calcular precios
+            const precioAdulto = parseFloat(data.precio_adulto) || 0;
+            const precioNino = parseFloat(data.precio_nino) || 0;
+            const precioResidente = parseFloat(data.precio_residente) || 0;
+            
+            const adultos = parseInt(data.adultos) || 0;
+            const residentes = parseInt(data.residentes) || 0;
+            const ninos = parseInt(data.ninos_5_12) || 0;
+            
+            const importeBase = (adultos * precioAdulto) + (residentes * precioResidente) + (ninos * precioNino);
+            const descuentoResidentes = residentes * (precioAdulto - precioResidente);
+            
+            $('#importe-base').text(importeBase.toFixed(2) + '€');
+            $('#descuento-residentes').text('-' + descuentoResidentes.toFixed(2) + '€');
+            $('#total-reserva').text((data.total_price || '0') + '€');
+            
+        } catch (error) {
+            console.error('Error cargando datos:', error);
+            alert('Error cargando los datos de la reserva');
         }
-        
-        // Rellenar los campos
-        $('#fecha-ida').text(data.fecha || '-');
-        $('#hora-ida').text('10:00'); // Esto se puede obtener del servicio
-        $('#fecha-vuelta').text(data.fecha || '-');
-        $('#hora-vuelta').text('13:30'); // Esto se puede obtener del servicio
-        
-        $('#num-adultos').text(data.adultos || 0);
-        $('#num-residentes').text(data.residentes || 0);
-        $('#num-ninos-5-12').text(data.ninos_5_12 || 0);
-        $('#num-ninos-menores').text(data.ninos_menores || 0);
-        
-        $('#importe-base').text('35€'); // Calcular
-        $('#descuento-residentes').text('-10€'); // Calcular
-        $('#total-reserva').text(data.total_price || '0€');
     }
     
     function goBackToBooking() {
@@ -469,5 +745,3 @@ class ReservasFrontend
     return ob_get_clean();
 }
 }
-
-

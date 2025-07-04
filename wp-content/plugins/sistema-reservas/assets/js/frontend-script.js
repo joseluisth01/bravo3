@@ -296,35 +296,6 @@ jQuery(document).ready(function ($) {
         $('#btn-siguiente').hide();
     }
 
-
-// Nueva función para ir a la página de detalles
-window.proceedToDetails = function() {
-    // Guardar datos en sessionStorage
-    const reservationData = {
-        fecha: selectedDate,
-        service_id: selectedServiceId,
-        adultos: parseInt($('#adultos').val()) || 0,
-        residentes: parseInt($('#residentes').val()) || 0,
-        ninos_5_12: parseInt($('#ninos-5-12').val()) || 0,
-        ninos_menores: parseInt($('#ninos-menores').val()) || 0,
-        total_price: $('#total-price').text()
-    };
-    
-    sessionStorage.setItem('reservationData', JSON.stringify(reservationData));
-    
-    // Construir URL correcta basada en la URL actual
-    const currentUrl = window.location.href;
-    const baseUrl = currentUrl.substring(0, currentUrl.indexOf('/', 8)); // Después de http://
-    const pathParts = window.location.pathname.split('/').filter(part => part !== '');
-    
-    // Si hay un subdirectorio (como 'bravo'), incluirlo
-    if (pathParts.length > 0 && pathParts[0] !== '') {
-        window.location.href = baseUrl + '/' + pathParts[0] + '/detalles-reserva/';
-    } else {
-        window.location.href = baseUrl + '/detalles-reserva/';
-    }
-};
-
     function previousStep() {
         if (currentStep === 2) {
             currentStep = 1;
@@ -393,3 +364,63 @@ window.proceedToDetails = function() {
     };
 
 });
+
+// Nueva función para ir a la página de detalles - VERSIÓN CORREGIDA
+window.proceedToDetails = function() {
+    // Validar que tenemos todos los datos necesarios
+    if (!selectedDate || !selectedServiceId) {
+        alert('Error: No hay fecha o servicio seleccionado');
+        return;
+    }
+    
+    // Obtener datos del servicio seleccionado
+    const service = findServiceById(selectedServiceId);
+    if (!service) {
+        alert('Error: No se encontraron datos del servicio');
+        return;
+    }
+    
+    // Recopilar todos los datos
+    const reservationData = {
+        fecha: selectedDate,
+        service_id: selectedServiceId,
+        hora_ida: service.hora, // Obtener hora real del servicio
+        adultos: parseInt(jQuery('#adultos').val()) || 0,
+        residentes: parseInt(jQuery('#residentes').val()) || 0,
+        ninos_5_12: parseInt(jQuery('#ninos-5-12').val()) || 0,
+        ninos_menores: parseInt(jQuery('#ninos-menores').val()) || 0,
+        precio_adulto: service.precio_adulto,
+        precio_nino: service.precio_nino,
+        precio_residente: service.precio_residente,
+        total_price: jQuery('#total-price').text().replace('€', '')
+    };
+    
+    // Guardar en sessionStorage con clave específica
+    sessionStorage.setItem('reservationData', JSON.stringify(reservationData));
+    
+    // Log para debug
+    console.log('Datos guardados:', reservationData);
+    
+    // Construir URL correcta
+    const currentUrl = window.location.href;
+    const baseUrl = currentUrl.substring(0, currentUrl.indexOf('/', 8));
+    const pathParts = window.location.pathname.split('/').filter(part => part !== '');
+    
+    if (pathParts.length > 0 && pathParts[0] !== '') {
+        window.location.href = baseUrl + '/' + pathParts[0] + '/detalles-reserva/';
+    } else {
+        window.location.href = baseUrl + '/detalles-reserva/';
+    }
+};
+
+// Función para encontrar servicio por ID (versión global)
+function findServiceById(serviceId) {
+    for (let date in servicesData) {
+        for (let service of servicesData[date]) {
+            if (service.id == serviceId) {
+                return service;
+            }
+        }
+    }
+    return null;
+}
