@@ -16,7 +16,7 @@ class ReservasFrontend
         add_action('wp_ajax_nopriv_calculate_price', array($this, 'calculate_price'));
     }
 
-public function enqueue_frontend_assets()
+    public function enqueue_frontend_assets()
     {
         global $post;
 
@@ -300,7 +300,7 @@ public function enqueue_frontend_assets()
     public function render_booking_form()
     {
         ob_start();
-        ?>
+?>
         <div id="reservas-formulario" class="reservas-booking-container">
             <!-- Paso 1: Seleccionar fecha/hora Y personas juntos -->
             <div class="booking-step" id="step-1">
@@ -412,7 +412,7 @@ public function enqueue_frontend_assets()
                 </button>
             </div>
         </div>
-        <?php
+    <?php
         return ob_get_clean();
     }
 
@@ -467,7 +467,7 @@ public function enqueue_frontend_assets()
         wp_send_json_success($calendar_data);
     }
 
-public function calculate_price()
+    public function calculate_price()
     {
         if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
             wp_die('Error de seguridad');
@@ -524,8 +524,8 @@ public function calculate_price()
             $subtotal = $precio_base - $descuento_total;
 
             $discount_info = ReservasDiscountsAdmin::calculate_discount(
-                $total_personas_con_plaza, 
-                $subtotal, 
+                $total_personas_con_plaza,
+                $subtotal,
                 'total'
             );
 
@@ -733,31 +733,31 @@ public function calculate_price()
             }
 
             .person-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    background: white;
-    text-align: center;
-    font-weight: bold;
-}
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                font-size: 16px;
+                background: white;
+                text-align: center;
+                font-weight: bold;
+            }
 
-.person-input:focus {
-    outline: none;
-    border-color: #F4D03F;
-    box-shadow: 0 0 0 3px rgba(244, 208, 63, 0.2);
-}
+            .person-input:focus {
+                outline: none;
+                border-color: #F4D03F;
+                box-shadow: 0 0 0 3px rgba(244, 208, 63, 0.2);
+            }
 
-.person-input::-webkit-outer-spin-button,
-.person-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
+            .person-input::-webkit-outer-spin-button,
+            .person-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
 
-.person-input[type=number] {
-    -moz-appearance: textfield;
-}
+            .person-input[type=number] {
+                -moz-appearance: textfield;
+            }
 
             .form-group {
                 margin-bottom: 0;
@@ -1038,7 +1038,15 @@ function processReservation() {
         alert("Por favor, completa todos los campos de datos personales.");
         return;
     }
-
+    
+    // Validar email básico
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert("Por favor, introduce un email válido.");
+        return;
+    }
+    
+    // Obtener datos de reserva desde sessionStorage
     let reservationData;
     try {
         const dataString = sessionStorage.getItem("reservationData");
@@ -1056,46 +1064,71 @@ function processReservation() {
         window.history.back();
         return;
     }
-
+    
+    // Deshabilitar botón y mostrar estado de carga
     const processBtn = jQuery(".process-btn");
     const originalText = processBtn.text();
     processBtn.prop("disabled", true).text("Procesando reserva...");
     
-    // Preparar datos para enviar
-    const formData = new FormData();
-    formData.append("action", "process_reservation");
-    formData.append("nonce", reservasAjax.nonce);
+    console.log("Enviando solicitud de procesamiento...");
     
-    // Datos personales
-    formData.append("nombre", nombre);
-    formData.append("apellidos", apellidos);
-    formData.append("email", email);
-    formData.append("telefono", telefono);
-    
-    // Datos de reserva
-    formData.append("reservation_data", JSON.stringify(reservationData));
-    
-    // Validar email básico
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        alert("Por favor, introduce un email válido.");
-        return;
-    }
-    
-    // Aquí procesarías la reserva real
-    alert("Reserva procesada correctamente!\\n\\n(Función en desarrollo - aquí se integraría con el sistema de pago)");
-    
-    // Limpiar sessionStorage
-    try {
-        sessionStorage.removeItem("reservationData");
-        console.log("SessionStorage limpiado después de procesar");
-    } catch (error) {
-        console.error("Error limpiando sessionStorage:", error);
-    }
-    
-    // Redirigir a página de confirmación o inicio
-    // window.location.href = "/confirmacion-reserva/";
-    window.location.href = "/";
+    // Enviar solicitud AJAX usando jQuery
+    jQuery.ajax({
+        url: reservasAjax.ajax_url,
+        type: "POST",
+        data: {
+            action: "process_reservation",
+            nonce: reservasAjax.nonce,
+            nombre: nombre,
+            apellidos: apellidos,
+            email: email,
+            telefono: telefono,
+            reservation_data: JSON.stringify(reservationData)
+        },
+        success: function(response) {
+            console.log("Respuesta recibida:", response);
+            
+            // Rehabilitar botón
+            processBtn.prop("disabled", false).text(originalText);
+            
+            if (response.success) {
+                console.log("Reserva procesada exitosamente:", response.data);
+                
+                // Mostrar información de éxito
+                const detalles = response.data.detalles;
+                const mensaje = "🎉 ¡RESERVA CONFIRMADA! 🎉\n\n📋 LOCALIZADOR: " + response.data.localizador + "\n\n📅 DETALLES:\n• Fecha: " + detalles.fecha + "\n• Hora: " + detalles.hora + "\n• Personas: " + detalles.personas + "\n• Precio: " + detalles.precio_final + "€\n\n✅ Tu reserva ha sido procesada correctamente.\n\n¡Guarda tu localizador para futuras consultas!";
+                
+                alert(mensaje);
+                
+                // Limpiar sessionStorage
+                try {
+                    sessionStorage.removeItem("reservationData");
+                    console.log("SessionStorage limpiado después de procesar");
+                } catch (error) {
+                    console.error("Error limpiando sessionStorage:", error);
+                }
+                
+                // Redirigir a página de inicio
+                setTimeout(function() {
+                    window.location.href = "/";
+                }, 2000);
+                
+            } else {
+                console.error("Error procesando reserva:", response.data);
+                alert("Error procesando la reserva: " + response.data);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error("Error de conexión:", error);
+            console.error("XHR:", xhr);
+            console.error("Status:", status);
+            
+            // Rehabilitar botón
+            processBtn.prop("disabled", false).text(originalText);
+            
+            alert("Error de conexión al procesar la reserva. Por favor, inténtalo de nuevo.");
+        }
+    });
 }
     ';
     }
