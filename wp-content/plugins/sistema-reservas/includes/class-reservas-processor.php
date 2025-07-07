@@ -16,10 +16,26 @@ class ReservasProcessor {
      * Procesar una nueva reserva
      */
     public function process_reservation() {
+        error_log('=== INICIANDO PROCESS_RESERVATION ===');
+        error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
+        error_log('POST data keys: ' . implode(', ', array_keys($_POST)));
+        
+        if (isset($_POST['action'])) {
+            error_log('Action: ' . $_POST['action']);
+        }
+        
+        if (isset($_POST['nonce'])) {
+            error_log('Nonce recibido: ' . $_POST['nonce']);
+            error_log('Nonce esperado: ' . wp_create_nonce('reservas_nonce'));
+        }
+
         // Verificar nonce
         if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+            error_log('ERROR: Nonce inválido');
             wp_send_json_error('Error de seguridad');
         }
+
+        error_log('Nonce verificado correctamente');
 
         // Validar y sanitizar datos del formulario
         $datos_personales = $this->validar_datos_personales();

@@ -16,7 +16,7 @@ class ReservasFrontend
         add_action('wp_ajax_nopriv_calculate_price', array($this, 'calculate_price'));
     }
 
-    public function enqueue_frontend_assets()
+public function enqueue_frontend_assets()
     {
         global $post;
 
@@ -43,9 +43,21 @@ class ReservasFrontend
             ));
         }
 
-        // Cargar assets para página de detalles
+        // ACTUALIZADO: Cargar assets para página de detalles también
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_detalles')) {
+            // Cargar jQuery si no está cargado
+            wp_enqueue_script('jquery');
+            
+            // Añadir las variables de AJAX directamente en el HTML
             wp_add_inline_style('wp-block-library', $this->get_details_css());
+            
+            // Añadir script inline con las variables necesarias
+            wp_add_inline_script('jquery', '
+                var reservasAjax = {
+                    ajax_url: "' . admin_url('admin-ajax.php') . '",
+                    nonce: "' . wp_create_nonce('reservas_nonce') . '"
+                };
+            ');
         }
     }
 
@@ -1026,6 +1038,15 @@ function goBackToBooking() {
 function processReservation() {
     console.log("=== PROCESANDO RESERVA REAL ===");
     
+    // Verificar que reservasAjax está definido
+    if (typeof reservasAjax === "undefined") {
+        console.error("reservasAjax no está definido");
+        alert("Error: Variables AJAX no disponibles. Recarga la página e inténtalo de nuevo.");
+        return;
+    }
+    
+    console.log("reservasAjax disponible:", reservasAjax);
+    
     // Validar formularios
     const nombre = jQuery("[name=\"nombre\"]").val().trim();
     const apellidos = jQuery("[name=\"apellidos\"]").val().trim();
@@ -1071,19 +1092,30 @@ function processReservation() {
     processBtn.prop("disabled", true).text("Procesando reserva...");
     
     console.log("Enviando solicitud de procesamiento...");
+    console.log("URL AJAX:", reservasAjax.ajax_url);
+    console.log("Nonce:", reservasAjax.nonce);
+    
+    // Preparar datos
+    const ajaxData = {
+        action: "process_reservation",
+        nonce: reservasAjax.nonce,
+        nombre: nombre,
+        apellidos: apellidos,
+        email: email,
+        telefono: telefono,
+        reservation_data: JSON.stringify(reservationData)
+    };
+    
+    console.log("Datos a enviar:", ajaxData);
     
     // Enviar solicitud AJAX usando jQuery
     jQuery.ajax({
         url: reservasAjax.ajax_url,
         type: "POST",
-        data: {
-            action: "process_reservation",
-            nonce: reservasAjax.nonce,
-            nombre: nombre,
-            apellidos: apellidos,
-            email: email,
-            telefono: telefono,
-            reservation_data: JSON.stringify(reservationData)
+        data: ajaxData,
+        timeout: 30000, // 30 segundos de timeout
+        beforeSend: function() {
+            console.log("Iniciando petición AJAX...");
         },
         success: function(response) {
             console.log("Respuesta recibida:", response);
@@ -1091,7 +1123,7 @@ function processReservation() {
             // Rehabilitar botón
             processBtn.prop("disabled", false).text(originalText);
             
-            if (response.success) {
+            if (response && response.success) {
                 console.log("Reserva procesada exitosamente:", response.data);
                 
                 // Mostrar información de éxito
@@ -1114,19 +1146,29 @@ function processReservation() {
                 }, 2000);
                 
             } else {
-                console.error("Error procesando reserva:", response.data);
-                alert("Error procesando la reserva: " + response.data);
+                console.error("Error procesando reserva:", response);
+                const errorMsg = response && response.data ? response.data : "Error desconocido";
+                alert("Error procesando la reserva: " + errorMsg);
             }
         },
         error: function(xhr, status, error) {
             console.error("Error de conexión:", error);
             console.error("XHR:", xhr);
             console.error("Status:", status);
+            console.error("Response text:", xhr.responseText);
             
             // Rehabilitar botón
             processBtn.prop("disabled", false).text(originalText);
             
-            alert("Error de conexión al procesar la reserva. Por favor, inténtalo de nuevo.");
+            let errorMessage = "Error de conexión al procesar la reserva.";
+            if (xhr.status === 404) {
+                errorMessage += " (Error 404: URL no encontrada)";
+            } else if (xhr.status === 500) {
+                errorMessage += " (Error 500: Error del servidor)";
+            }
+            errorMessage += " Por favor, inténtalo de nuevo.";
+            
+            alert(errorMessage);
         }
     });
 }
