@@ -18,7 +18,7 @@ class SistemaReservas
     private $dashboard;
     private $calendar_admin;
     private $discounts_admin;
-    private $configuration_admin; // NUEVA LÍNEA
+    private $configuration_admin;
 
     public function __construct()
     {
@@ -54,7 +54,7 @@ class SistemaReservas
             'includes/class-dashboard.php',
             'includes/class-calendar-admin.php',
             'includes/class-discounts-admin.php',
-            'includes/class-configuration-admin.php', // MANTENER ESTA LÍNEA
+            'includes/class-configuration-admin.php',
             'includes/class-reservas-processor.php',
             'includes/class-frontend.php',
         );
@@ -89,7 +89,7 @@ class SistemaReservas
             $this->discounts_admin = new ReservasDiscountsAdmin();
         }
 
-        // NUEVA LÍNEA: Inicializar clase de configuración
+        // Inicializar clase de configuración
         if (class_exists('ReservasConfigurationAdmin')) {
             $this->configuration_admin = new ReservasConfigurationAdmin();
         }
@@ -263,7 +263,7 @@ class SistemaReservas
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_discounts);
 
-        // Tabla de configuración
+        // ✅ TABLA DE CONFIGURACIÓN - NUEVA Y MEJORADA
         $table_configuration = $wpdb->prefix . 'reservas_configuration';
         $sql_configuration = "CREATE TABLE $table_configuration (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -287,7 +287,7 @@ class SistemaReservas
         // Crear regla de descuento por defecto
         $this->create_default_discount_rule();
 
-        // Crear configuración por defecto
+        // ✅ CREAR CONFIGURACIÓN POR DEFECTO MEJORADA
         $this->create_default_configuration();
     }
 
@@ -342,12 +342,114 @@ class SistemaReservas
         }
     }
 
+    // ✅ FUNCIÓN MEJORADA PARA CREAR CONFIGURACIÓN POR DEFECTO
     private function create_default_configuration()
     {
-        // Inicializar configuración por defecto usando la clase de configuración
-        if (class_exists('ReservasConfigurationAdmin')) {
-            $config_admin = new ReservasConfigurationAdmin();
-            $config_admin->maybe_create_table();
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'reservas_configuration';
+        
+        $default_configs = array(
+            // Precios por defecto
+            array(
+                'config_key' => 'precio_adulto_defecto',
+                'config_value' => '10.00',
+                'config_group' => 'precios',
+                'description' => 'Precio por defecto para adultos al crear nuevos servicios'
+            ),
+            array(
+                'config_key' => 'precio_nino_defecto',
+                'config_value' => '5.00',
+                'config_group' => 'precios',
+                'description' => 'Precio por defecto para niños (5-12 años) al crear nuevos servicios'
+            ),
+            array(
+                'config_key' => 'precio_residente_defecto',
+                'config_value' => '5.00',
+                'config_group' => 'precios',
+                'description' => 'Precio por defecto para residentes al crear nuevos servicios'
+            ),
+            
+            // Configuración de servicios
+            array(
+                'config_key' => 'plazas_defecto',
+                'config_value' => '50',
+                'config_group' => 'servicios',
+                'description' => 'Número de plazas por defecto al crear nuevos servicios'
+            ),
+            array(
+                'config_key' => 'dias_anticipacion_minima',
+                'config_value' => '1',
+                'config_group' => 'servicios',
+                'description' => 'Días de anticipación mínima para poder reservar (bloquea fechas en calendario)'
+            ),
+            
+            // Notificaciones
+            array(
+                'config_key' => 'email_confirmacion_activo',
+                'config_value' => '1',
+                'config_group' => 'notificaciones',
+                'description' => 'Activar email de confirmación automático al cliente y administrador'
+            ),
+            array(
+                'config_key' => 'email_recordatorio_activo',
+                'config_value' => '0',
+                'config_group' => 'notificaciones',
+                'description' => 'Activar recordatorios antes del viaje'
+            ),
+            array(
+                'config_key' => 'horas_recordatorio',
+                'config_value' => '24',
+                'config_group' => 'notificaciones',
+                'description' => 'Horas antes del viaje para enviar recordatorio'
+            ),
+            array(
+                'config_key' => 'email_remitente',
+                'config_value' => get_option('admin_email'),
+                'config_group' => 'notificaciones',
+                'description' => 'Email remitente para notificaciones del sistema'
+            ),
+            array(
+                'config_key' => 'nombre_remitente',
+                'config_value' => get_bloginfo('name'),
+                'config_group' => 'notificaciones',
+                'description' => 'Nombre del remitente para notificaciones'
+            ),
+            
+            // General
+            array(
+                'config_key' => 'zona_horaria',
+                'config_value' => 'Europe/Madrid',
+                'config_group' => 'general',
+                'description' => 'Zona horaria del sistema'
+            ),
+            array(
+                'config_key' => 'moneda',
+                'config_value' => 'EUR',
+                'config_group' => 'general',
+                'description' => 'Moneda utilizada en el sistema'
+            ),
+            array(
+                'config_key' => 'simbolo_moneda',
+                'config_value' => '€',
+                'config_group' => 'general',
+                'description' => 'Símbolo de la moneda'
+            )
+        );
+        
+        foreach ($default_configs as $config) {
+            // Verificar si ya existe
+            $existing = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_name WHERE config_key = %s",
+                $config['config_key']
+            ));
+            
+            if ($existing == 0) {
+                $result = $wpdb->insert($table_name, $config);
+                if ($result === false) {
+                    error_log("Error insertando configuración: " . $config['config_key'] . " - " . $wpdb->last_error);
+                }
+            }
         }
     }
 }

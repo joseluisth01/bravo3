@@ -1,6 +1,6 @@
 <?php
 /**
- * Clase para gestionar la configuración del sistema de reservas
+ * Clase para gestionar la configuración del sistema de reservas - ACTUALIZADA
  * Archivo: wp-content/plugins/sistema-reservas/includes/class-configuration-admin.php
  */
 class ReservasConfigurationAdmin {
@@ -60,7 +60,7 @@ class ReservasConfigurationAdmin {
     }
 
     /**
-     * Crear configuración por defecto
+     * Crear configuración por defecto - ACTUALIZADA
      */
     private function create_default_configuration() {
         global $wpdb;
@@ -73,39 +73,33 @@ class ReservasConfigurationAdmin {
                 'config_key' => 'precio_adulto_defecto',
                 'config_value' => '10.00',
                 'config_group' => 'precios',
-                'description' => 'Precio por defecto para adultos'
+                'description' => 'Precio por defecto para adultos al crear nuevos servicios'
             ),
             array(
                 'config_key' => 'precio_nino_defecto',
                 'config_value' => '5.00',
                 'config_group' => 'precios',
-                'description' => 'Precio por defecto para niños (5-12 años)'
+                'description' => 'Precio por defecto para niños (5-12 años) al crear nuevos servicios'
             ),
             array(
                 'config_key' => 'precio_residente_defecto',
                 'config_value' => '5.00',
                 'config_group' => 'precios',
-                'description' => 'Precio por defecto para residentes'
+                'description' => 'Precio por defecto para residentes al crear nuevos servicios'
             ),
             
-            // Configuración de servicios
+            // Configuración de servicios (SIN hora de vuelta)
             array(
                 'config_key' => 'plazas_defecto',
                 'config_value' => '50',
                 'config_group' => 'servicios',
-                'description' => 'Número de plazas por defecto por autobús'
-            ),
-            array(
-                'config_key' => 'hora_vuelta_estandar',
-                'config_value' => '13:30',
-                'config_group' => 'servicios',
-                'description' => 'Hora de vuelta estándar'
+                'description' => 'Número de plazas por defecto al crear nuevos servicios'
             ),
             array(
                 'config_key' => 'dias_anticipacion_minima',
                 'config_value' => '1',
                 'config_group' => 'servicios',
-                'description' => 'Días de anticipación mínima para reservar'
+                'description' => 'Días de anticipación mínima para poder reservar (bloquea fechas en calendario)'
             ),
             
             // Notificaciones
@@ -113,7 +107,7 @@ class ReservasConfigurationAdmin {
                 'config_key' => 'email_confirmacion_activo',
                 'config_value' => '1',
                 'config_group' => 'notificaciones',
-                'description' => 'Activar email de confirmación automático'
+                'description' => 'Activar email de confirmación automático al cliente y administrador'
             ),
             array(
                 'config_key' => 'email_recordatorio_activo',
@@ -131,7 +125,7 @@ class ReservasConfigurationAdmin {
                 'config_key' => 'email_remitente',
                 'config_value' => get_option('admin_email'),
                 'config_group' => 'notificaciones',
-                'description' => 'Email remitente para notificaciones'
+                'description' => 'Email remitente para notificaciones del sistema'
             ),
             array(
                 'config_key' => 'nombre_remitente',
@@ -140,33 +134,7 @@ class ReservasConfigurationAdmin {
                 'description' => 'Nombre del remitente para notificaciones'
             ),
             
-            // Personalización
-            array(
-                'config_key' => 'nombre_empresa',
-                'config_value' => get_bloginfo('name'),
-                'config_group' => 'personalizacion',
-                'description' => 'Nombre de la empresa'
-            ),
-            array(
-                'config_key' => 'color_primario',
-                'config_value' => '#EFCF4B',
-                'config_group' => 'personalizacion',
-                'description' => 'Color primario del sistema'
-            ),
-            array(
-                'config_key' => 'color_secundario',
-                'config_value' => '#E74C3C',
-                'config_group' => 'personalizacion',
-                'description' => 'Color secundario del sistema'
-            ),
-            array(
-                'config_key' => 'texto_reserva_exitosa',
-                'config_value' => '¡Tu reserva ha sido confirmada! Recibirás un email con los detalles.',
-                'config_group' => 'personalizacion',
-                'description' => 'Mensaje mostrado tras reserva exitosa'
-            ),
-            
-            // General
+            // General (SIN idioma)
             array(
                 'config_key' => 'zona_horaria',
                 'config_value' => 'Europe/Madrid',
@@ -177,19 +145,13 @@ class ReservasConfigurationAdmin {
                 'config_key' => 'moneda',
                 'config_value' => 'EUR',
                 'config_group' => 'general',
-                'description' => 'Moneda utilizada'
+                'description' => 'Moneda utilizada en el sistema'
             ),
             array(
                 'config_key' => 'simbolo_moneda',
                 'config_value' => '€',
                 'config_group' => 'general',
                 'description' => 'Símbolo de la moneda'
-            ),
-            array(
-                'config_key' => 'idioma',
-                'config_value' => 'es_ES',
-                'config_group' => 'general',
-                'description' => 'Idioma del sistema'
             )
         );
         
@@ -245,7 +207,7 @@ class ReservasConfigurationAdmin {
     }
 
     /**
-     * Guardar configuración
+     * Guardar configuración - ACTUALIZADA
      */
     public function save_configuration() {
         if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
@@ -266,57 +228,69 @@ class ReservasConfigurationAdmin {
         // Obtener datos del formulario
         $configs_to_save = array();
         
-        // Precios
+        // Precios (validación mejorada)
         if (isset($_POST['precio_adulto_defecto'])) {
-            $configs_to_save['precio_adulto_defecto'] = floatval($_POST['precio_adulto_defecto']);
+            $precio_adulto = floatval($_POST['precio_adulto_defecto']);
+            if ($precio_adulto < 0) {
+                wp_send_json_error('El precio de adulto no puede ser negativo');
+            }
+            $configs_to_save['precio_adulto_defecto'] = $precio_adulto;
         }
         if (isset($_POST['precio_nino_defecto'])) {
-            $configs_to_save['precio_nino_defecto'] = floatval($_POST['precio_nino_defecto']);
+            $precio_nino = floatval($_POST['precio_nino_defecto']);
+            if ($precio_nino < 0) {
+                wp_send_json_error('El precio de niño no puede ser negativo');
+            }
+            $configs_to_save['precio_nino_defecto'] = $precio_nino;
         }
         if (isset($_POST['precio_residente_defecto'])) {
-            $configs_to_save['precio_residente_defecto'] = floatval($_POST['precio_residente_defecto']);
+            $precio_residente = floatval($_POST['precio_residente_defecto']);
+            if ($precio_residente < 0) {
+                wp_send_json_error('El precio de residente no puede ser negativo');
+            }
+            $configs_to_save['precio_residente_defecto'] = $precio_residente;
         }
         
-        // Servicios
+        // Servicios (validación mejorada)
         if (isset($_POST['plazas_defecto'])) {
-            $configs_to_save['plazas_defecto'] = intval($_POST['plazas_defecto']);
-        }
-        if (isset($_POST['hora_vuelta_estandar'])) {
-            $configs_to_save['hora_vuelta_estandar'] = sanitize_text_field($_POST['hora_vuelta_estandar']);
+            $plazas = intval($_POST['plazas_defecto']);
+            if ($plazas < 1 || $plazas > 200) {
+                wp_send_json_error('Las plazas por defecto deben estar entre 1 y 200');
+            }
+            $configs_to_save['plazas_defecto'] = $plazas;
         }
         if (isset($_POST['dias_anticipacion_minima'])) {
-            $configs_to_save['dias_anticipacion_minima'] = intval($_POST['dias_anticipacion_minima']);
+            $dias_anticipacion = intval($_POST['dias_anticipacion_minima']);
+            if ($dias_anticipacion < 0 || $dias_anticipacion > 30) {
+                wp_send_json_error('Los días de anticipación deben estar entre 0 y 30');
+            }
+            $configs_to_save['dias_anticipacion_minima'] = $dias_anticipacion;
         }
         
         // Notificaciones
-        if (isset($_POST['email_confirmacion_activo'])) {
-            $configs_to_save['email_confirmacion_activo'] = $_POST['email_confirmacion_activo'] ? 1 : 0;
-        }
-        if (isset($_POST['email_recordatorio_activo'])) {
-            $configs_to_save['email_recordatorio_activo'] = $_POST['email_recordatorio_activo'] ? 1 : 0;
-        }
+        $configs_to_save['email_confirmacion_activo'] = isset($_POST['email_confirmacion_activo']) ? 1 : 0;
+        $configs_to_save['email_recordatorio_activo'] = isset($_POST['email_recordatorio_activo']) ? 1 : 0;
+        
         if (isset($_POST['horas_recordatorio'])) {
-            $configs_to_save['horas_recordatorio'] = intval($_POST['horas_recordatorio']);
+            $horas = intval($_POST['horas_recordatorio']);
+            if ($horas < 1 || $horas > 168) { // Máximo una semana
+                wp_send_json_error('Las horas de recordatorio deben estar entre 1 y 168 (una semana)');
+            }
+            $configs_to_save['horas_recordatorio'] = $horas;
         }
         if (isset($_POST['email_remitente'])) {
-            $configs_to_save['email_remitente'] = sanitize_email($_POST['email_remitente']);
+            $email = sanitize_email($_POST['email_remitente']);
+            if (empty($email) || !is_email($email)) {
+                wp_send_json_error('El email remitente no es válido');
+            }
+            $configs_to_save['email_remitente'] = $email;
         }
         if (isset($_POST['nombre_remitente'])) {
-            $configs_to_save['nombre_remitente'] = sanitize_text_field($_POST['nombre_remitente']);
-        }
-        
-        // Personalización
-        if (isset($_POST['nombre_empresa'])) {
-            $configs_to_save['nombre_empresa'] = sanitize_text_field($_POST['nombre_empresa']);
-        }
-        if (isset($_POST['color_primario'])) {
-            $configs_to_save['color_primario'] = sanitize_text_field($_POST['color_primario']);
-        }
-        if (isset($_POST['color_secundario'])) {
-            $configs_to_save['color_secundario'] = sanitize_text_field($_POST['color_secundario']);
-        }
-        if (isset($_POST['texto_reserva_exitosa'])) {
-            $configs_to_save['texto_reserva_exitosa'] = sanitize_textarea_field($_POST['texto_reserva_exitosa']);
+            $nombre = sanitize_text_field($_POST['nombre_remitente']);
+            if (empty($nombre)) {
+                wp_send_json_error('El nombre del remitente no puede estar vacío');
+            }
+            $configs_to_save['nombre_remitente'] = $nombre;
         }
         
         // General
@@ -327,10 +301,11 @@ class ReservasConfigurationAdmin {
             $configs_to_save['moneda'] = sanitize_text_field($_POST['moneda']);
         }
         if (isset($_POST['simbolo_moneda'])) {
-            $configs_to_save['simbolo_moneda'] = sanitize_text_field($_POST['simbolo_moneda']);
-        }
-        if (isset($_POST['idioma'])) {
-            $configs_to_save['idioma'] = sanitize_text_field($_POST['idioma']);
+            $simbolo = sanitize_text_field($_POST['simbolo_moneda']);
+            if (strlen($simbolo) > 3) {
+                wp_send_json_error('El símbolo de moneda no puede tener más de 3 caracteres');
+            }
+            $configs_to_save['simbolo_moneda'] = $simbolo;
         }
 
         // Guardar cada configuración
@@ -404,5 +379,29 @@ class ReservasConfigurationAdmin {
         
         return true;
     }
-}
 
+    /**
+     * Método estático para obtener configuración de precios por defecto
+     */
+    public static function get_default_prices() {
+        return array(
+            'precio_adulto' => self::get_config('precio_adulto_defecto', '10.00'),
+            'precio_nino' => self::get_config('precio_nino_defecto', '5.00'),
+            'precio_residente' => self::get_config('precio_residente_defecto', '5.00')
+        );
+    }
+
+    /**
+     * Método estático para obtener plazas por defecto
+     */
+    public static function get_default_plazas() {
+        return intval(self::get_config('plazas_defecto', '50'));
+    }
+
+    /**
+     * Método estático para obtener días de anticipación mínima
+     */
+    public static function get_dias_anticipacion_minima() {
+        return intval(self::get_config('dias_anticipacion_minima', '1'));
+    }
+}

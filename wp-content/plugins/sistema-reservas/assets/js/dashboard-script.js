@@ -2,6 +2,7 @@
 let currentDate = new Date();
 let servicesData = {};
 let bulkHorarios = [];
+let defaultConfig = null; // ✅ NUEVA VARIABLE PARA CONFIGURACIÓN
 
 function loadCalendarSection() {
     document.body.innerHTML = `
@@ -26,8 +27,63 @@ function loadCalendarSection() {
         </div>
     `;
 
-    // Inicializar el calendario
-    initCalendar();
+    // ✅ CARGAR CONFIGURACIÓN PRIMERO, LUEGO INICIALIZAR CALENDARIO
+    loadDefaultConfiguration().then(() => {
+        initCalendar();
+    });
+}
+
+// ✅ NUEVA FUNCIÓN PARA CARGAR CONFIGURACIÓN POR DEFECTO
+function loadDefaultConfiguration() {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('action', 'get_configuration');
+        formData.append('nonce', reservasAjax.nonce);
+
+        fetch(reservasAjax.ajax_url, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                defaultConfig = data.data;
+                console.log('Configuración por defecto cargada:', defaultConfig);
+                resolve();
+            } else {
+                console.error('Error cargando configuración:', data.data);
+                // Si no se puede cargar, usar valores por defecto
+                defaultConfig = {
+                    precios: {
+                        precio_adulto_defecto: { value: '10.00' },
+                        precio_nino_defecto: { value: '5.00' },
+                        precio_residente_defecto: { value: '5.00' }
+                    },
+                    servicios: {
+                        plazas_defecto: { value: '50' },
+                        dias_anticipacion_minima: { value: '1' }
+                    }
+                };
+                resolve();
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando configuración:', error);
+            // Valores por defecto en caso de error
+            defaultConfig = {
+                precios: {
+                    precio_adulto_defecto: { value: '10.00' },
+                    precio_nino_defecto: { value: '5.00' },
+                    precio_residente_defecto: { value: '5.00' }
+                },
+                servicios: {
+                    plazas_defecto: { value: '50' },
+                    dias_anticipacion_minima: { value: '1' }
+                }
+            };
+            resolve();
+        });
+    });
 }
 
 function initCalendar() {
@@ -119,13 +175,22 @@ function renderCalendar() {
         </div>`;
     }
 
+    // ✅ OBTENER DÍAS DE ANTICIPACIÓN MÍNIMA DE LA CONFIGURACIÓN
+    const diasAnticiapcion = defaultConfig?.servicios?.dias_anticipacion_minima?.value || '1';
+    const fechaMinima = new Date();
+    fechaMinima.setDate(fechaMinima.getDate() + parseInt(diasAnticiapcion));
+
     // Días del mes actual
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayDate = new Date(year, month, day);
         const isToday = dateStr === new Date().toISOString().split('T')[0];
         const todayClass = isToday ? ' today' : '';
 
-        // ACTUALIZADO: Verificar si algún servicio tiene descuento
+        // ✅ VERIFICAR SI EL DÍA ESTÁ BLOQUEADO POR DÍAS DE ANTICIPACIÓN
+        const isBlocked = dayDate < fechaMinima;
+
+        // Verificar si algún servicio tiene descuento
         let hasDiscount = false;
         if (servicesData[dateStr]) {
             hasDiscount = servicesData[dateStr].some(service => 
@@ -153,7 +218,14 @@ function renderCalendar() {
             dayClass += ' day-with-discount';
         }
 
-        calendarHTML += `<div class="${dayClass}" onclick="addService('${dateStr}')">
+        // ✅ AGREGAR CLASE Y COMPORTAMIENTO PARA DÍAS BLOQUEADOS
+        let clickHandler = `onclick="addService('${dateStr}')"`;
+        if (isBlocked) {
+            dayClass += ' blocked-day';
+            clickHandler = `onclick="showBlockedDayMessage()"`;
+        }
+
+        calendarHTML += `<div class="${dayClass}" ${clickHandler}>
             <div class="day-number">${day}</div>
             ${servicesHTML}
         </div>`;
@@ -168,6 +240,12 @@ function renderCalendar() {
 
     // Inicializar eventos de los modales
     initModalEvents();
+}
+
+// ✅ NUEVA FUNCIÓN PARA MOSTRAR MENSAJE DE DÍA BLOQUEADO
+function showBlockedDayMessage() {
+    const diasAnticiapcion = defaultConfig?.servicios?.dias_anticipacion_minima?.value || '1';
+    alert(`No se pueden crear servicios para esta fecha. Se requiere un mínimo de ${diasAnticiapcion} días de anticipación.`);
 }
 
 function getModalHTML() {
@@ -206,7 +284,7 @@ function getModalHTML() {
                         <input type="number" id="precioResidente" name="precio_residente" step="0.01" min="0" required>
                     </div>
                     
-                    <!-- NUEVO: Sección de descuento -->
+                    <!-- Sección de descuento -->
                     <div class="form-group discount-section">
                         <label>
                             <input type="checkbox" id="tieneDescuento" name="tiene_descuento"> 
@@ -311,7 +389,7 @@ function getModalHTML() {
                         <input type="number" id="bulkPrecioResidente" name="precio_residente" step="0.01" min="0" required>
                     </div>
                     
-                    <!-- NUEVO: Sección de descuento para bulk -->
+                    <!-- Sección de descuento para bulk -->
                     <div class="form-group discount-section">
                         <label>
                             <input type="checkbox" id="bulkTieneDescuento" name="bulk_tiene_descuento"> 
@@ -331,6 +409,25 @@ function getModalHTML() {
                 </form>
             </div>
         </div>
+        
+        <style>
+        /* ✅ ESTILOS PARA DÍAS BLOQUEADOS */
+        .calendar-day.blocked-day {
+            background-color: #f8f8f8 !important;
+            color: #999 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+        
+        .calendar-day.blocked-day:hover {
+            background-color: #f8f8f8 !important;
+            transform: none !important;
+        }
+        
+        .calendar-day.blocked-day .day-number {
+            text-decoration: line-through;
+        }
+        </style>
     `;
 }
 
@@ -347,7 +444,7 @@ function initModalEvents() {
         saveBulkServices();
     });
 
-    // NUEVO: Eventos para los checkboxes de descuento
+    // Eventos para los checkboxes de descuento
     document.getElementById('tieneDescuento').addEventListener('change', function() {
         const discountFields = document.getElementById('discountFields');
         if (this.checked) {
@@ -370,19 +467,33 @@ function initModalEvents() {
 }
 
 function addService(fecha) {
+    // ✅ VERIFICAR DÍAS DE ANTICIPACIÓN ANTES DE ABRIR MODAL
+    const diasAnticiapcion = defaultConfig?.servicios?.dias_anticipacion_minima?.value || '1';
+    const fechaMinima = new Date();
+    fechaMinima.setDate(fechaMinima.getDate() + parseInt(diasAnticiapcion));
+    const fechaSeleccionada = new Date(fecha);
+
+    if (fechaSeleccionada < fechaMinima) {
+        showBlockedDayMessage();
+        return;
+    }
+
     document.getElementById('serviceModalTitle').textContent = 'Añadir Servicio';
     document.getElementById('serviceForm').reset();
     document.getElementById('serviceId').value = '';
     document.getElementById('serviceFecha').value = fecha;
     document.getElementById('deleteServiceBtn').style.display = 'none';
 
-    // Valores por defecto
-    document.getElementById('servicePlazas').value = 50;
-    document.getElementById('precioAdulto').value = 10.00;
-    document.getElementById('precioNino').value = 5.00;
-    document.getElementById('precioResidente').value = 5.00;
+    // ✅ USAR VALORES DE CONFIGURACIÓN POR DEFECTO
+    const defaultPrices = defaultConfig?.precios || {};
+    const defaultPlazas = defaultConfig?.servicios?.plazas_defecto?.value || '50';
 
-    // NUEVO: Ocultar campos de descuento por defecto
+    document.getElementById('servicePlazas').value = defaultPlazas;
+    document.getElementById('precioAdulto').value = defaultPrices.precio_adulto_defecto?.value || '10.00';
+    document.getElementById('precioNino').value = defaultPrices.precio_nino_defecto?.value || '5.00';
+    document.getElementById('precioResidente').value = defaultPrices.precio_residente_defecto?.value || '5.00';
+
+    // Ocultar campos de descuento por defecto
     document.getElementById('discountFields').style.display = 'none';
     document.getElementById('tieneDescuento').checked = false;
     document.getElementById('porcentajeDescuento').value = '';
@@ -413,7 +524,7 @@ function editService(serviceId) {
                 document.getElementById('precioNino').value = service.precio_nino;
                 document.getElementById('precioResidente').value = service.precio_residente;
                 
-                // NUEVO: Cargar datos de descuento
+                // Cargar datos de descuento
                 const tieneDescuento = service.tiene_descuento == '1';
                 document.getElementById('tieneDescuento').checked = tieneDescuento;
                 
@@ -502,13 +613,25 @@ function showBulkAddModal() {
     bulkHorarios = [];
     updateHorariosList();
 
-    // Valores por defecto
-    document.getElementById('bulkPlazas').value = 50;
-    document.getElementById('bulkPrecioAdulto').value = 10.00;
-    document.getElementById('bulkPrecioNino').value = 5.00;
-    document.getElementById('bulkPrecioResidente').value = 5.00;
+    // ✅ USAR VALORES DE CONFIGURACIÓN POR DEFECTO PARA BULK
+    const defaultPrices = defaultConfig?.precios || {};
+    const defaultPlazas = defaultConfig?.servicios?.plazas_defecto?.value || '50';
 
-    // NUEVO: Ocultar campos de descuento por defecto
+    document.getElementById('bulkPlazas').value = defaultPlazas;
+    document.getElementById('bulkPrecioAdulto').value = defaultPrices.precio_adulto_defecto?.value || '10.00';
+    document.getElementById('bulkPrecioNino').value = defaultPrices.precio_nino_defecto?.value || '5.00';
+    document.getElementById('bulkPrecioResidente').value = defaultPrices.precio_residente_defecto?.value || '5.00';
+
+    // ✅ ESTABLECER FECHA MÍNIMA BASADA EN CONFIGURACIÓN
+    const diasAnticiapcion = defaultConfig?.servicios?.dias_anticipacion_minima?.value || '1';
+    const fechaMinima = new Date();
+    fechaMinima.setDate(fechaMinima.getDate() + parseInt(diasAnticiapcion));
+    const fechaMinimaStr = fechaMinima.toISOString().split('T')[0];
+    
+    document.getElementById('bulkFechaInicio').setAttribute('min', fechaMinimaStr);
+    document.getElementById('bulkFechaFin').setAttribute('min', fechaMinimaStr);
+
+    // Ocultar campos de descuento por defecto
     document.getElementById('bulkDiscountFields').style.display = 'none';
     document.getElementById('bulkTieneDescuento').checked = false;
     document.getElementById('bulkPorcentajeDescuento').value = '';
@@ -604,7 +727,7 @@ function goBackToDashboard() {
     location.reload();
 }
 
-
+// ✅ FUNCIONES PARA GESTIÓN DE DESCUENTOS (mantenidas igual)
 function loadDiscountsConfigSection() {
     document.body.innerHTML = `
         <div class="discounts-management">
@@ -898,6 +1021,7 @@ function closeDiscountModal() {
     document.getElementById('discountModal').style.display = 'none';
 }
 
+// ✅ FUNCIONES PARA CONFIGURACIÓN DEL SISTEMA (actualizadas sin personalización e idioma)
 function loadConfigurationSection() {
     document.body.innerHTML = `
         <div class="configuration-management">
@@ -918,7 +1042,6 @@ function loadConfigurationSection() {
     // Cargar configuración actual
     loadConfigurationData();
 }
-
 
 function loadConfigurationData() {
     const formData = new FormData();
@@ -945,13 +1068,14 @@ function loadConfigurationData() {
     });
 }
 
+// ✅ FUNCIÓN ACTUALIZADA SIN PERSONALIZACIÓN E IDIOMA
 function renderConfigurationForm(configs) {
     let html = `
         <form id="configurationForm" class="configuration-form">
             
             <!-- Sección: Precios por Defecto -->
             <div class="config-section">
-                <h3>💰 Precios por Defecto</h3>
+                <h3>💰 Precios por Defecto para Nuevos Servicios</h3>
                 <div class="config-grid">
                     <div class="config-item">
                         <label for="precio_adulto_defecto">Precio Adulto (€)</label>
@@ -985,12 +1109,6 @@ function renderConfigurationForm(configs) {
                         <small>${configs.servicios?.plazas_defecto?.description || ''}</small>
                     </div>
                     <div class="config-item">
-                        <label for="hora_vuelta_estandar">Hora de Vuelta Estándar</label>
-                        <input type="time" id="hora_vuelta_estandar" name="hora_vuelta_estandar" 
-                               value="${configs.servicios?.hora_vuelta_estandar?.value || '13:30'}">
-                        <small>${configs.servicios?.hora_vuelta_estandar?.description || ''}</small>
-                    </div>
-                    <div class="config-item">
                         <label for="dias_anticipacion_minima">Días Anticipación Mínima</label>
                         <input type="number" id="dias_anticipacion_minima" name="dias_anticipacion_minima" 
                                min="0" max="30" value="${configs.servicios?.dias_anticipacion_minima?.value || '1'}">
@@ -1001,7 +1119,7 @@ function renderConfigurationForm(configs) {
 
             <!-- Sección: Notificaciones -->
             <div class="config-section">
-                <h3>📧 Notificaciones</h3>
+                <h3>📧 Notificaciones por Email</h3>
                 <div class="config-grid">
                     <div class="config-item config-checkbox">
                         <label>
@@ -1040,39 +1158,9 @@ function renderConfigurationForm(configs) {
                 </div>
             </div>
 
-            <!-- Sección: Personalización -->
-            <div class="config-section">
-                <h3>🎨 Personalización</h3>
-                <div class="config-grid">
-                    <div class="config-item">
-                        <label for="nombre_empresa">Nombre de la Empresa</label>
-                        <input type="text" id="nombre_empresa" name="nombre_empresa" 
-                               value="${configs.personalizacion?.nombre_empresa?.value || ''}">
-                        <small>${configs.personalizacion?.nombre_empresa?.description || ''}</small>
-                    </div>
-                    <div class="config-item">
-                        <label for="color_primario">Color Primario</label>
-                        <input type="color" id="color_primario" name="color_primario" 
-                               value="${configs.personalizacion?.color_primario?.value || '#EFCF4B'}">
-                        <small>${configs.personalizacion?.color_primario?.description || ''}</small>
-                    </div>
-                    <div class="config-item">
-                        <label for="color_secundario">Color Secundario</label>
-                        <input type="color" id="color_secundario" name="color_secundario" 
-                               value="${configs.personalizacion?.color_secundario?.value || '#E74C3C'}">
-                        <small>${configs.personalizacion?.color_secundario?.description || ''}</small>
-                    </div>
-                    <div class="config-item full-width">
-                        <label for="texto_reserva_exitosa">Mensaje de Reserva Exitosa</label>
-                        <textarea id="texto_reserva_exitosa" name="texto_reserva_exitosa" rows="3">${configs.personalizacion?.texto_reserva_exitosa?.value || ''}</textarea>
-                        <small>${configs.personalizacion?.texto_reserva_exitosa?.description || ''}</small>
-                    </div>
-                </div>
-            </div>
-
             <!-- Sección: Configuración General -->
             <div class="config-section">
-                <h3>🔒 Configuración General</h3>
+                <h3>🌍 Configuración General</h3>
                 <div class="config-grid">
                     <div class="config-item">
                         <label for="zona_horaria">Zona Horaria</label>
@@ -1097,15 +1185,6 @@ function renderConfigurationForm(configs) {
                         <input type="text" id="simbolo_moneda" name="simbolo_moneda" maxlength="3"
                                value="${configs.general?.simbolo_moneda?.value || '€'}">
                         <small>${configs.general?.simbolo_moneda?.description || ''}</small>
-                    </div>
-                    <div class="config-item">
-                        <label for="idioma">Idioma</label>
-                        <select id="idioma" name="idioma">
-                            <option value="es_ES" ${configs.general?.idioma?.value === 'es_ES' ? 'selected' : ''}>Español</option>
-                            <option value="en_US" ${configs.general?.idioma?.value === 'en_US' ? 'selected' : ''}>English</option>
-                            <option value="fr_FR" ${configs.general?.idioma?.value === 'fr_FR' ? 'selected' : ''}>Français</option>
-                        </select>
-                        <small>${configs.general?.idioma?.description || ''}</small>
                     </div>
                 </div>
             </div>
@@ -1173,8 +1252,10 @@ function saveAllConfiguration() {
         if (data.success) {
             alert('✅ ' + data.data);
             
-            // Opcional: Mostrar notificación temporal
-            showConfigurationNotification('Configuración guardada exitosamente', 'success');
+            // ✅ RECARGAR CONFIGURACIÓN POR DEFECTO DESPUÉS DE GUARDAR
+            loadDefaultConfiguration().then(() => {
+                showConfigurationNotification('Configuración guardada y sincronizada exitosamente', 'success');
+            });
         } else {
             alert('❌ Error: ' + data.data);
             showConfigurationNotification('Error guardando configuración: ' + data.data, 'error');

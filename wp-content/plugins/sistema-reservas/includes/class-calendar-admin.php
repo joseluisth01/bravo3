@@ -1,4 +1,8 @@
 <?php
+/**
+ * Clase ReservasCalendarAdmin actualizada para sincronizar con configuración
+ * Archivo: wp-content/plugins/sistema-reservas/includes/class-calendar-admin.php
+ */
 class ReservasCalendarAdmin {
     
     public function __construct() {
@@ -47,7 +51,7 @@ class ReservasCalendarAdmin {
             $first_day = sprintf('%04d-%02d-01', $year, $month);
             $last_day = date('Y-m-t', strtotime($first_day));
 
-            // ACTUALIZADO: Incluir campos de descuento en la consulta
+            // Incluir campos de descuento en la consulta
             $servicios = $wpdb->get_results($wpdb->prepare(
                 "SELECT id, fecha, hora, plazas_totales, plazas_disponibles, 
                         precio_adulto, precio_nino, precio_residente,
@@ -113,9 +117,21 @@ class ReservasCalendarAdmin {
         $precio_residente = floatval($_POST['precio_residente']);
         $service_id = isset($_POST['service_id']) ? intval($_POST['service_id']) : 0;
         
-        // NUEVO: Campos de descuento
+        // Campos de descuento
         $tiene_descuento = isset($_POST['tiene_descuento']) ? 1 : 0;
         $porcentaje_descuento = floatval($_POST['porcentaje_descuento']) ?: 0;
+
+        // ✅ VALIDAR DÍAS DE ANTICIPACIÓN MÍNIMA
+        if (!class_exists('ReservasConfigurationAdmin')) {
+            require_once RESERVAS_PLUGIN_PATH . 'includes/class-configuration-admin.php';
+        }
+        
+        $dias_anticipacion = ReservasConfigurationAdmin::get_dias_anticipacion_minima();
+        $fecha_minima = date('Y-m-d', strtotime("+$dias_anticipacion days"));
+        
+        if ($fecha < $fecha_minima) {
+            wp_send_json_error("No se puede crear servicios para fechas anteriores a $fecha_minima (mínimo $dias_anticipacion días de anticipación)");
+        }
 
         // Validar que no exista ya un servicio en esa fecha y hora
         if ($service_id == 0) {
@@ -240,19 +256,39 @@ class ReservasCalendarAdmin {
         $precio_residente = floatval($_POST['precio_residente']);
         $dias_semana = isset($_POST['dias_semana']) ? $_POST['dias_semana'] : array();
         
-        // NUEVO: Campos de descuento para bulk
+        // Campos de descuento para bulk
         $tiene_descuento = isset($_POST['bulk_tiene_descuento']) ? 1 : 0;
         $porcentaje_descuento = floatval($_POST['bulk_porcentaje_descuento']) ?: 0;
+
+        // ✅ VALIDAR DÍAS DE ANTICIPACIÓN MÍNIMA PARA BULK
+        if (!class_exists('ReservasConfigurationAdmin')) {
+            require_once RESERVAS_PLUGIN_PATH . 'includes/class-configuration-admin.php';
+        }
+        
+        $dias_anticipacion = ReservasConfigurationAdmin::get_dias_anticipacion_minima();
+        $fecha_minima = date('Y-m-d', strtotime("+$dias_anticipacion days"));
+        
+        if ($fecha_inicio < $fecha_minima) {
+            wp_send_json_error("La fecha de inicio no puede ser anterior a $fecha_minima (mínimo $dias_anticipacion días de anticipación)");
+        }
 
         $fecha_actual = strtotime($fecha_inicio);
         $fecha_limite = strtotime($fecha_fin);
         $servicios_creados = 0;
         $servicios_existentes = 0;
+        $servicios_bloqueados = 0;
         $errores = 0;
 
         while ($fecha_actual <= $fecha_limite) {
             $fecha_str = date('Y-m-d', $fecha_actual);
             $dia_semana = date('w', $fecha_actual);
+
+            // ✅ VERIFICAR DÍAS DE ANTICIPACIÓN PARA CADA FECHA
+            if ($fecha_str < $fecha_minima) {
+                $servicios_bloqueados++;
+                $fecha_actual = strtotime('+1 day', $fecha_actual);
+                continue;
+            }
 
             if (empty($dias_semana) || in_array($dia_semana, $dias_semana)) {
 
@@ -298,6 +334,9 @@ class ReservasCalendarAdmin {
         if ($servicios_existentes > 0) {
             $mensaje .= " $servicios_existentes ya existían.";
         }
+        if ($servicios_bloqueados > 0) {
+            $mensaje .= " $servicios_bloqueados fueron bloqueados por días de anticipación.";
+        }
         if ($errores > 0) {
             $mensaje .= " Hubo $errores errores.";
         }
@@ -305,6 +344,7 @@ class ReservasCalendarAdmin {
         wp_send_json_success(array(
             'creados' => $servicios_creados,
             'existentes' => $servicios_existentes,
+            'bloqueados' => $servicios_bloqueados,
             'errores' => $errores,
             'mensaje' => $mensaje
         ));

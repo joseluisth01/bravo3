@@ -255,7 +255,7 @@ th {
 .role-agencia { background: #00a32a; color: white; }
 .role-conductor { background: #dba617; color: white; }
 
-.status-active { background: #00a32a; color: white; }
+.status-active { background: #00a32a; color: white !important; }
 .status-inactive { background: #6c757d; color: white; }
 
 .loading {

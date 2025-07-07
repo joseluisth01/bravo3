@@ -164,19 +164,19 @@ class ReservasFrontend
                             </div>
 
                             <div class="total-price">
-                                <div class="discount-row" id="discount-row" style="display: none;">
-                                    <span class="discount">DESCUENTOS: <span id="total-discount">-10€</span></span>
-                                </div>
-                                <div class="total-row">
-                                    <span class="total">TOTAL: <span id="total-price">25€</span></span>
-                                </div>
-                            </div>
+    <div class="discount-row" id="discount-row" style="display: none;">
+        <span class="discount">DESCUENTOS: <span id="total-discount"></span></span>
+    </div>
+    <div class="total-row">
+        <span class="total">TOTAL: <span id="total-price">0€</span></span>
+    </div>
+</div>
                         </div>
 
                     </div>
                 </div>
             </div>
-            <div style="text-align: center; width: 100%; margin-top: 20px;">
+            <div style="text-align: center; width: 100%; margin-top: 50px;">
                 <button type="button" class="complete-btn" onclick="proceedToDetails()">
                     3. COMPLETAR RESERVA
                 </button>
