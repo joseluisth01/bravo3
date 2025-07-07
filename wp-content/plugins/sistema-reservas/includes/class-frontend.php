@@ -43,363 +43,31 @@ class ReservasFrontend
             ));
         }
 
-        // ACTUALIZADO: Cargar assets para página de detalles también con variables AJAX
+        // ❌ PROBLEMA ARREGLADO: Cargar assets para página de detalles también
         if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'reservas_detalles')) {
-            // Cargar jQuery si no está cargado
-            wp_enqueue_script('jquery');
-            
-            // Añadir las variables de AJAX directamente en el HTML
-            wp_add_inline_style('wp-block-library', $this->get_details_css());
-            
-            // CRUCIAL: Añadir script inline con las variables necesarias para AJAX
-            wp_add_inline_script('jquery', '
-                var reservasAjax = {
-                    ajax_url: "' . admin_url('admin-ajax.php') . '",
-                    nonce: "' . wp_create_nonce('reservas_nonce') . '"
-                };
-            ');
+            // Cargar CSS
+            wp_enqueue_style(
+                'reservas-frontend-style',
+                RESERVAS_PLUGIN_URL . 'assets/css/frontend-style.css',
+                array(),
+                '1.0.0'
+            );
+
+            // ✅ CARGAR EL SCRIPT JAVASCRIPT - ESTO FALTABA
+            wp_enqueue_script(
+                'reservas-frontend-script',
+                RESERVAS_PLUGIN_URL . 'assets/js/frontend-script.js',
+                array('jquery'),
+                '1.0.0',
+                true
+            );
+
+            // ✅ LOCALIZAR VARIABLES AJAX - ESTO TAMBIÉN FALTABA
+            wp_localize_script('reservas-frontend-script', 'reservasAjax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('reservas_nonce')
+            ));
         }
-    }
-
-    private function get_details_css()
-    {
-        return '
-/* Estilos para la página de detalles de reserva */
-.reservas-details-container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #F5F5F5;
-    min-height: 100vh;
-}
-
-.details-summary h2 {
-    background: #8B4513;
-    color: white;
-    text-align: center;
-    margin: 0 0 20px 0;
-    padding: 20px;
-    font-size: 24px;
-    font-weight: bold;
-    letter-spacing: 1px;
-}
-
-.details-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0;
-    background: white;
-    border: 2px solid #ddd;
-    margin-bottom: 20px;
-}
-
-.details-section {
-    padding: 20px;
-    border-right: 1px solid #ddd;
-}
-
-.details-section:last-child {
-    border-right: none;
-}
-
-.details-section h3 {
-    background: #E8E8E8;
-    color: #666;
-    text-align: center;
-    margin: -20px -20px 20px -20px;
-    padding: 12px;
-    font-size: 16px;
-    font-weight: bold;
-    border-bottom: 1px solid #ddd;
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding: 8px 0;
-}
-
-.detail-row .label {
-    color: #8B4513;
-    font-weight: bold;
-    font-size: 14px;
-    flex: 1;
-}
-
-.detail-row .value {
-    color: #333;
-    font-weight: bold;
-    font-size: 14px;
-    text-align: right;
-    min-width: 80px;
-}
-
-.total-row {
-    border-top: 2px solid #ddd;
-    margin-top: 15px;
-    padding-top: 15px;
-}
-
-.total-row .label {
-    font-size: 16px;
-    color: #000;
-}
-
-.total-row .value {
-    font-size: 18px;
-    color: #E74C3C;
-    font-weight: bold;
-}
-
-.confirm-section {
-    text-align: center;
-    margin: 30px 0;
-}
-
-.confirm-btn {
-    background: #F4D03F;
-    border: none;
-    padding: 15px 40px;
-    border-radius: 25px;
-    font-size: 16px;
-    font-weight: bold;
-    color: #333;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.confirm-btn:hover {
-    background: #F1C40F;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
-
-.forms-section {
-    margin-top: 30px;
-}
-
-.forms-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.form-card {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.form-card h3 {
-    background: #E74C3C;
-    color: white;
-    text-align: center;
-    margin: 0;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.form-card form {
-    padding: 20px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    box-sizing: border-box;
-}
-
-.form-group input::placeholder {
-    color: #999;
-    font-weight: normal;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #E74C3C;
-    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
-}
-
-.final-buttons {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-    margin-top: 30px;
-}
-
-.back-btn {
-    background: #6C757D;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.3s;
-    flex: 1;
-}
-
-.back-btn:hover {
-    background: #5A6268;
-}
-
-.process-btn {
-    background: #28A745;
-    color: white;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.3s;
-    flex: 1;
-}
-
-.process-btn:hover {
-    background: #218838;
-}
-
-@media (max-width: 768px) {
-    .details-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .details-section {
-        border-right: none;
-        border-bottom: 1px solid #ddd;
-    }
-    
-    .details-section:last-child {
-        border-bottom: none;
-    }
-    
-    .forms-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .final-buttons {
-        flex-direction: column;
-    }
-    
-    .detail-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-    }
-    
-    .detail-row .value {
-        text-align: left;
-    }
-}
-
-/* Estilos adicionales para la nueva estructura */
-.personal-data-section {
-    margin: 20px 0;
-}
-
-.form-card-single {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-.form-card-single h3 {
-    background: #E74C3C;
-    color: white;
-    text-align: center;
-    margin: 0;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.form-card-single form {
-    padding: 20px;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.person-input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    background: white;
-    text-align: center;
-    font-weight: bold;
-}
-
-.person-input:focus {
-    outline: none;
-    border-color: #F4D03F;
-    box-shadow: 0 0 0 3px rgba(244, 208, 63, 0.2);
-}
-
-.person-input::-webkit-outer-spin-button,
-.person-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.person-input[type=number] {
-    -moz-appearance: textfield;
-}
-
-.form-group {
-    margin-bottom: 0;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    box-sizing: border-box;
-}
-
-.form-group input::placeholder {
-    color: #999;
-    font-weight: normal;
-}
-
-.form-group input:focus {
-    outline: none;
-    border-color: #E74C3C;
-    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
-}
-
-/* Responsive para formularios */
-@media (max-width: 768px) {
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-}
-        ';
     }
 
     public function render_booking_form()
@@ -572,116 +240,126 @@ class ReservasFrontend
         wp_send_json_success($calendar_data);
     }
 
-    public function calculate_price()
-    {
-        if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
-            wp_die('Error de seguridad');
+public function calculate_price()
+{
+    if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+        wp_die('Error de seguridad');
+    }
+
+    $service_id = intval($_POST['service_id']);
+    $adultos = intval($_POST['adultos']);
+    $residentes = intval($_POST['residentes']);
+    $ninos_5_12 = intval($_POST['ninos_5_12']);
+    $ninos_menores = intval($_POST['ninos_menores']);
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'reservas_servicios';
+
+    // Obtener datos del servicio
+    $servicio = $wpdb->get_row($wpdb->prepare(
+        "SELECT *, tiene_descuento, porcentaje_descuento FROM $table_name WHERE id = %d",
+        $service_id
+    ));
+
+    if (!$servicio) {
+        wp_send_json_error('Servicio no encontrado');
+    }
+
+    // ✅ CALCULAR TOTAL DE PERSONAS QUE OCUPAN PLAZA
+    $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
+    // Los niños menores de 5 años NO ocupan plaza y van gratis
+
+    // ✅ CALCULAR PRECIO BASE (todos pagan precio de adulto inicialmente)
+    $precio_base = 0;
+    $precio_base += $adultos * $servicio->precio_adulto;        // Adultos normales
+    $precio_base += $residentes * $servicio->precio_adulto;     // Residentes (primero precio normal)
+    $precio_base += $ninos_5_12 * $servicio->precio_adulto;     // Niños 5-12 (primero precio normal)
+    // Los niños menores NO se añaden al precio base
+
+    // ✅ CALCULAR DESCUENTOS INDIVIDUALES
+    $descuento_total = 0;
+    
+    // Descuento por ser residente (diferencia entre precio adulto y precio residente)
+    $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
+    $descuento_total += $descuento_residentes;
+
+    // Descuento por ser niño (diferencia entre precio adulto y precio niño)
+    $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
+    $descuento_total += $descuento_ninos;
+
+    // ✅ CALCULAR DESCUENTO POR GRUPO (solo si hay suficientes personas)
+    $descuento_grupo = 0;
+    $regla_aplicada = null;
+
+    if ($total_personas_con_plaza > 0) {
+        if (!class_exists('ReservasDiscountsAdmin')) {
+            require_once RESERVAS_PLUGIN_PATH . 'includes/class-discounts-admin.php';
         }
 
-        $service_id = intval($_POST['service_id']);
-        $adultos = intval($_POST['adultos']);
-        $residentes = intval($_POST['residentes']);
-        $ninos_5_12 = intval($_POST['ninos_5_12']);
-        $ninos_menores = intval($_POST['ninos_menores']);
+        // Calcular el subtotal después de descuentos individuales
+        $subtotal_para_grupo = $precio_base - $descuento_total;
 
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'reservas_servicios';
-
-        // ACTUALIZADO: Incluir campos de descuento en la consulta
-        $servicio = $wpdb->get_row($wpdb->prepare(
-            "SELECT *, tiene_descuento, porcentaje_descuento FROM $table_name WHERE id = %d",
-            $service_id
-        ));
-
-        if (!$servicio) {
-            wp_send_json_error('Servicio no encontrado');
-        }
-
-        // Calcular precio base (sin descuentos)
-        $precio_base = 0;
-        $descuento_total = 0;
-
-        // Adultos normales (precio completo)
-        $precio_base += $adultos * $servicio->precio_adulto;
-
-        // Adultos residentes (precio base como adulto normal)
-        $precio_base += $residentes * $servicio->precio_adulto;
-        $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
-        $descuento_total += $descuento_residentes;
-
-        // Niños 5-12 años (precio base como adulto)
-        $precio_base += $ninos_5_12 * $servicio->precio_adulto;
-        $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
-        $descuento_total += $descuento_ninos;
-
-        // Calcular total de personas que ocupan plaza
-        $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
-
-        // Calcular descuento por grupo usando las reglas configuradas
-        $descuento_grupo = 0;
-        $regla_aplicada = null;
-
-        if ($total_personas_con_plaza > 0) {
-            if (!class_exists('ReservasDiscountsAdmin')) {
-                require_once RESERVAS_PLUGIN_PATH . 'includes/class-discounts-admin.php';
-            }
-
-            $subtotal = $precio_base - $descuento_total;
-
-            $discount_info = ReservasDiscountsAdmin::calculate_discount(
-                $total_personas_con_plaza,
-                $subtotal,
-                'total'
-            );
-
-            if ($discount_info['discount_applied']) {
-                $descuento_grupo = $discount_info['discount_amount'];
-                $descuento_total += $descuento_grupo;
-                $regla_aplicada = array(
-                    'rule_name' => $discount_info['rule_name'],
-                    'discount_percentage' => $discount_info['discount_percentage'],
-                    'minimum_persons' => $discount_info['minimum_persons']
-                );
-            }
-        }
-
-        // NUEVO: Aplicar descuento específico del servicio si existe
-        $descuento_servicio = 0;
-        if ($servicio->tiene_descuento && floatval($servicio->porcentaje_descuento) > 0) {
-            $subtotal_actual = $precio_base - $descuento_total;
-            $descuento_servicio = ($subtotal_actual * floatval($servicio->porcentaje_descuento)) / 100;
-            $descuento_total += $descuento_servicio;
-        }
-
-        // Calcular total final
-        $total = $precio_base - $descuento_total;
-
-        // Asegurar que el total no sea negativo
-        if ($total < 0) {
-            $total = 0;
-        }
-
-        $response_data = array(
-            'precio_base' => round($precio_base, 2),
-            'descuento' => round($descuento_total, 2),
-            'descuento_residentes' => round($descuento_residentes, 2),
-            'descuento_ninos' => round($descuento_ninos, 2),
-            'descuento_grupo' => round($descuento_grupo, 2),
-            'descuento_servicio' => round($descuento_servicio, 2), // NUEVO
-            'total' => round($total, 2),
-            'precio_adulto' => $servicio->precio_adulto,
-            'precio_nino' => $servicio->precio_nino,
-            'precio_residente' => $servicio->precio_residente,
-            'total_personas_con_plaza' => $total_personas_con_plaza,
-            'regla_descuento_aplicada' => $regla_aplicada,
-            'servicio_con_descuento' => array( // NUEVO
-                'tiene_descuento' => $servicio->tiene_descuento,
-                'porcentaje_descuento' => $servicio->porcentaje_descuento
-            )
+        $discount_info = ReservasDiscountsAdmin::calculate_discount(
+            $total_personas_con_plaza,
+            $subtotal_para_grupo,
+            'total'
         );
 
-        wp_send_json_success($response_data);
+        if ($discount_info['discount_applied']) {
+            $descuento_grupo = $discount_info['discount_amount'];
+            $descuento_total += $descuento_grupo;
+            $regla_aplicada = array(
+                'rule_name' => $discount_info['rule_name'],
+                'discount_percentage' => $discount_info['discount_percentage'],
+                'minimum_persons' => $discount_info['minimum_persons']
+            );
+        }
     }
+
+    // ✅ APLICAR DESCUENTO ESPECÍFICO DEL SERVICIO (si existe)
+    $descuento_servicio = 0;
+    if ($servicio->tiene_descuento && floatval($servicio->porcentaje_descuento) > 0) {
+        $subtotal_actual = $precio_base - $descuento_total;
+        $descuento_servicio = ($subtotal_actual * floatval($servicio->porcentaje_descuento)) / 100;
+        $descuento_total += $descuento_servicio;
+    }
+
+    // ✅ CALCULAR TOTAL FINAL
+    $total = $precio_base - $descuento_total;
+    if ($total < 0) $total = 0;
+
+    // ✅ PREPARAR RESPUESTA CON INFORMACIÓN DETALLADA
+    $response_data = array(
+        'precio_base' => round($precio_base, 2),
+        'descuento' => round($descuento_total, 2),
+        'descuento_residentes' => round($descuento_residentes, 2),
+        'descuento_ninos' => round($descuento_ninos, 2),
+        'descuento_grupo' => round($descuento_grupo, 2),
+        'descuento_servicio' => round($descuento_servicio, 2),
+        'total' => round($total, 2),
+        'precio_adulto' => $servicio->precio_adulto,
+        'precio_nino' => $servicio->precio_nino,
+        'precio_residente' => $servicio->precio_residente,
+        'total_personas_con_plaza' => $total_personas_con_plaza,
+        'regla_descuento_aplicada' => $regla_aplicada,
+        'servicio_con_descuento' => array(
+            'tiene_descuento' => $servicio->tiene_descuento,
+            'porcentaje_descuento' => $servicio->porcentaje_descuento
+        ),
+        // ✅ INFORMACIÓN DE DEBUG
+        'debug' => array(
+            'adultos' => $adultos,
+            'residentes' => $residentes,
+            'ninos_5_12' => $ninos_5_12,
+            'ninos_menores' => $ninos_menores,
+            'total_personas_con_plaza' => $total_personas_con_plaza,
+            'precio_base_calculado' => $precio_base,
+            'descuento_grupo_aplicado' => $descuento_grupo > 0
+        )
+    );
+
+    wp_send_json_success($response_data);
+}
 
     public function render_details_form()
     {
@@ -795,30 +473,135 @@ class ReservasFrontend
             </div>
         </div>
 
+        <!-- ✅ SCRIPT MEJORADO QUE LLAMA A LAS FUNCIONES CORRECTAS -->
         <script>
-// Variables AJAX para esta página
-if (typeof reservasAjax === 'undefined') {
-    var reservasAjax = {
-        ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
-        nonce: '<?php echo wp_create_nonce('reservas_nonce'); ?>'
-    };
+        // ✅ EJECUTAR DESPUÉS DE QUE SE CARGUE EL DOCUMENT Y LOS SCRIPTS
+        jQuery(document).ready(function($) {
+            console.log("=== PÁGINA DE DETALLES CARGADA ===");
+            
+            // ✅ CARGAR DATOS DIRECTAMENTE DESDE ESTA PÁGINA
+            loadReservationDataFromStorage();
+        });
+
+        // ✅ FUNCIÓN QUE CARGA LOS DATOS DESDE sessionStorage
+        function loadReservationDataFromStorage() {
+            console.log("=== INICIANDO CARGA DE DATOS ===");
+            
+            try {
+                const dataString = sessionStorage.getItem("reservationData");
+                console.log("Datos en sessionStorage:", dataString);
+                
+                if (!dataString) {
+                    alert("No hay datos de reserva. Redirigiendo...");
+                    window.history.back();
+                    return;
+                }
+                
+                const data = JSON.parse(dataString);
+                console.log("Datos parseados:", data);
+                fillReservationDetailsDirectly(data);
+                
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                alert("Error cargando los datos de la reserva");
+            }
+        }
+
+// ✅ FUNCIÓN QUE RELLENA LOS DATOS EN LA PÁGINA DE DETALLES - ARREGLADA
+function fillReservationDetailsDirectly(data) {
+    console.log("=== RELLENANDO DETALLES ===");
+    console.log("Datos recibidos:", data);
+    
+    // Formatear fecha
+    let fechaFormateada = "-";
+    if (data.fecha) {
+        const fechaObj = new Date(data.fecha + "T00:00:00");
+        fechaFormateada = fechaObj.toLocaleDateString("es-ES", {
+            weekday: "long",
+            year: "numeric", 
+            month: "long",
+            day: "numeric"
+        });
+    }
+    
+    // Rellenar datos básicos
+    jQuery("#fecha-ida").text(fechaFormateada);
+    jQuery("#hora-ida").text(data.hora_ida || "-");
+    jQuery("#fecha-vuelta").text(fechaFormateada);
+    jQuery("#hora-vuelta").text("13:30");
+    
+    jQuery("#num-adultos").text(data.adultos || 0);
+    jQuery("#num-residentes").text(data.residentes || 0);
+    jQuery("#num-ninos-5-12").text(data.ninos_5_12 || 0);
+    jQuery("#num-ninos-menores").text(data.ninos_menores || 0);
+    
+    // ✅ OBTENER PRECIOS DEL SERVICIO
+    const precioAdulto = parseFloat(data.precio_adulto) || 0;
+    const precioNino = parseFloat(data.precio_nino) || 0;
+    const precioResidente = parseFloat(data.precio_residente) || 0;
+    
+    const adultos = parseInt(data.adultos) || 0;
+    const residentes = parseInt(data.residentes) || 0;
+    const ninos_5_12 = parseInt(data.ninos_5_12) || 0;
+    const ninos_menores = parseInt(data.ninos_menores) || 0;
+    
+    // ✅ CALCULAR PERSONAS QUE OCUPAN PLAZA
+    const totalPersonasConPlaza = adultos + residentes + ninos_5_12;
+    
+    // ✅ CALCULAR PRECIO BASE (todos empiezan pagando precio de adulto)
+    const importeBase = totalPersonasConPlaza * precioAdulto;
+    
+    // ✅ CALCULAR DESCUENTOS INDIVIDUALES
+    const descuentoResidentes = residentes * (precioAdulto - precioResidente);
+    const descuentoNinos = ninos_5_12 * (precioAdulto - precioNino);
+    
+    // ✅ MOSTRAR PRECIOS CALCULADOS
+    jQuery("#importe-base").text(formatPrice(importeBase));
+    jQuery("#descuento-residentes").text(formatPrice(-descuentoResidentes));
+    jQuery("#descuento-menores").text(formatPrice(-descuentoNinos));
+    
+    // ✅ MOSTRAR DESCUENTO POR GRUPO SOLO SI REALMENTE SE APLICÓ
+    const descuentoGrupo = parseFloat(data.descuento_grupo) || 0;
+    
+    console.log("Datos de descuento:");
+    console.log("- Total personas con plaza:", totalPersonasConPlaza);
+    console.log("- Descuento grupo en datos:", descuentoGrupo);
+    console.log("- Regla aplicada:", data.regla_descuento_aplicada);
+    
+    if (descuentoGrupo > 0 && data.regla_descuento_aplicada) {
+        // Solo mostrar si realmente hay descuento por grupo
+        jQuery("#descuento-grupo-detalle").text(formatPrice(-descuentoGrupo));
+        jQuery("#descuento-grupo-row").show();
+        console.log("✅ Mostrando descuento por grupo:", descuentoGrupo);
+    } else {
+        // Ocultar la fila de descuento por grupo
+        jQuery("#descuento-grupo-row").hide();
+        console.log("❌ Ocultando descuento por grupo (no aplica)");
+    }
+    
+    // ✅ MOSTRAR TOTAL FINAL
+    jQuery("#total-reserva").text(formatPrice(data.total_price || "0"));
+    
+    console.log("✅ Detalles rellenados correctamente");
+    console.log("Resumen:");
+    console.log("- Importe base:", formatPrice(importeBase));
+    console.log("- Descuento residentes:", formatPrice(-descuentoResidentes));
+    console.log("- Descuento niños:", formatPrice(-descuentoNinos));
+    console.log("- Descuento grupo:", descuentoGrupo > 0 ? formatPrice(-descuentoGrupo) : "No aplica");
+    console.log("- Total final:", formatPrice(data.total_price || "0"));
 }
 
-// El resto del JavaScript va en frontend-script.js
-jQuery(document).ready(function($) {
-    console.log("=== PÁGINA DE DETALLES CARGADA ===");
-    
-    // Verificar que las funciones están disponibles
-    if (typeof loadReservationData === 'function') {
-        loadReservationData();
-    } else {
-        console.error('Función loadReservationData no encontrada. Asegúrate de que frontend-script.js está cargado.');
-    }
-});
-</script>
+        function formatPrice(price) {
+            const numPrice = parseFloat(price) || 0;
+            return numPrice.toFixed(2) + "€";
+        }
+
+        function goBackToBooking() {
+            sessionStorage.removeItem("reservationData");
+            window.history.back();
+        }
+        </script>
     <?php
         return ob_get_clean();
     }
-
-
 }

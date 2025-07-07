@@ -897,3 +897,323 @@ function deleteDiscountRule(ruleId = null) {
 function closeDiscountModal() {
     document.getElementById('discountModal').style.display = 'none';
 }
+
+function loadConfigurationSection() {
+    document.body.innerHTML = `
+        <div class="configuration-management">
+            <div class="configuration-header">
+                <h1>⚙️ Configuración del Sistema</h1>
+                <div class="configuration-actions">
+                    <button class="btn-primary" onclick="saveAllConfiguration()">💾 Guardar Toda la Configuración</button>
+                    <button class="btn-secondary" onclick="goBackToDashboard()">← Volver al Dashboard</button>
+                </div>
+            </div>
+            
+            <div class="configuration-content">
+                <div class="loading">Cargando configuración...</div>
+            </div>
+        </div>
+    `;
+
+    // Cargar configuración actual
+    loadConfigurationData();
+}
+
+
+function loadConfigurationData() {
+    const formData = new FormData();
+    formData.append('action', 'get_configuration');
+    formData.append('nonce', reservasAjax.nonce);
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderConfigurationForm(data.data);
+        } else {
+            document.querySelector('.configuration-content').innerHTML = 
+                '<p class="error">Error cargando la configuración: ' + data.data + '</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.querySelector('.configuration-content').innerHTML = 
+            '<p class="error">Error de conexión</p>';
+    });
+}
+
+function renderConfigurationForm(configs) {
+    let html = `
+        <form id="configurationForm" class="configuration-form">
+            
+            <!-- Sección: Precios por Defecto -->
+            <div class="config-section">
+                <h3>💰 Precios por Defecto</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="precio_adulto_defecto">Precio Adulto (€)</label>
+                        <input type="number" id="precio_adulto_defecto" name="precio_adulto_defecto" 
+                               step="0.01" min="0" value="${configs.precios?.precio_adulto_defecto?.value || '10.00'}">
+                        <small>${configs.precios?.precio_adulto_defecto?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="precio_nino_defecto">Precio Niño (€)</label>
+                        <input type="number" id="precio_nino_defecto" name="precio_nino_defecto" 
+                               step="0.01" min="0" value="${configs.precios?.precio_nino_defecto?.value || '5.00'}">
+                        <small>${configs.precios?.precio_nino_defecto?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="precio_residente_defecto">Precio Residente (€)</label>
+                        <input type="number" id="precio_residente_defecto" name="precio_residente_defecto" 
+                               step="0.01" min="0" value="${configs.precios?.precio_residente_defecto?.value || '5.00'}">
+                        <small>${configs.precios?.precio_residente_defecto?.description || ''}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección: Configuración de Servicios -->
+            <div class="config-section">
+                <h3>🚌 Configuración de Servicios</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="plazas_defecto">Plazas por Defecto</label>
+                        <input type="number" id="plazas_defecto" name="plazas_defecto" 
+                               min="1" max="200" value="${configs.servicios?.plazas_defecto?.value || '50'}">
+                        <small>${configs.servicios?.plazas_defecto?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="hora_vuelta_estandar">Hora de Vuelta Estándar</label>
+                        <input type="time" id="hora_vuelta_estandar" name="hora_vuelta_estandar" 
+                               value="${configs.servicios?.hora_vuelta_estandar?.value || '13:30'}">
+                        <small>${configs.servicios?.hora_vuelta_estandar?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="dias_anticipacion_minima">Días Anticipación Mínima</label>
+                        <input type="number" id="dias_anticipacion_minima" name="dias_anticipacion_minima" 
+                               min="0" max="30" value="${configs.servicios?.dias_anticipacion_minima?.value || '1'}">
+                        <small>${configs.servicios?.dias_anticipacion_minima?.description || ''}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección: Notificaciones -->
+            <div class="config-section">
+                <h3>📧 Notificaciones</h3>
+                <div class="config-grid">
+                    <div class="config-item config-checkbox">
+                        <label>
+                            <input type="checkbox" id="email_confirmacion_activo" name="email_confirmacion_activo" 
+                                   ${configs.notificaciones?.email_confirmacion_activo?.value == '1' ? 'checked' : ''}>
+                            Email de Confirmación Automático
+                        </label>
+                        <small>${configs.notificaciones?.email_confirmacion_activo?.description || ''}</small>
+                    </div>
+                    <div class="config-item config-checkbox">
+                        <label>
+                            <input type="checkbox" id="email_recordatorio_activo" name="email_recordatorio_activo" 
+                                   ${configs.notificaciones?.email_recordatorio_activo?.value == '1' ? 'checked' : ''}>
+                            Recordatorios antes del Viaje
+                        </label>
+                        <small>${configs.notificaciones?.email_recordatorio_activo?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="horas_recordatorio">Horas antes para Recordatorio</label>
+                        <input type="number" id="horas_recordatorio" name="horas_recordatorio" 
+                               min="1" max="168" value="${configs.notificaciones?.horas_recordatorio?.value || '24'}">
+                        <small>${configs.notificaciones?.horas_recordatorio?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="email_remitente">Email Remitente</label>
+                        <input type="email" id="email_remitente" name="email_remitente" 
+                               value="${configs.notificaciones?.email_remitente?.value || ''}">
+                        <small>${configs.notificaciones?.email_remitente?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="nombre_remitente">Nombre del Remitente</label>
+                        <input type="text" id="nombre_remitente" name="nombre_remitente" 
+                               value="${configs.notificaciones?.nombre_remitente?.value || ''}">
+                        <small>${configs.notificaciones?.nombre_remitente?.description || ''}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección: Personalización -->
+            <div class="config-section">
+                <h3>🎨 Personalización</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="nombre_empresa">Nombre de la Empresa</label>
+                        <input type="text" id="nombre_empresa" name="nombre_empresa" 
+                               value="${configs.personalizacion?.nombre_empresa?.value || ''}">
+                        <small>${configs.personalizacion?.nombre_empresa?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="color_primario">Color Primario</label>
+                        <input type="color" id="color_primario" name="color_primario" 
+                               value="${configs.personalizacion?.color_primario?.value || '#F4D03F'}">
+                        <small>${configs.personalizacion?.color_primario?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="color_secundario">Color Secundario</label>
+                        <input type="color" id="color_secundario" name="color_secundario" 
+                               value="${configs.personalizacion?.color_secundario?.value || '#E74C3C'}">
+                        <small>${configs.personalizacion?.color_secundario?.description || ''}</small>
+                    </div>
+                    <div class="config-item full-width">
+                        <label for="texto_reserva_exitosa">Mensaje de Reserva Exitosa</label>
+                        <textarea id="texto_reserva_exitosa" name="texto_reserva_exitosa" rows="3">${configs.personalizacion?.texto_reserva_exitosa?.value || ''}</textarea>
+                        <small>${configs.personalizacion?.texto_reserva_exitosa?.description || ''}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección: Configuración General -->
+            <div class="config-section">
+                <h3>🔒 Configuración General</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="zona_horaria">Zona Horaria</label>
+                        <select id="zona_horaria" name="zona_horaria">
+                            <option value="Europe/Madrid" ${configs.general?.zona_horaria?.value === 'Europe/Madrid' ? 'selected' : ''}>Europe/Madrid</option>
+                            <option value="Europe/London" ${configs.general?.zona_horaria?.value === 'Europe/London' ? 'selected' : ''}>Europe/London</option>
+                            <option value="America/New_York" ${configs.general?.zona_horaria?.value === 'America/New_York' ? 'selected' : ''}>America/New_York</option>
+                        </select>
+                        <small>${configs.general?.zona_horaria?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="moneda">Moneda</label>
+                        <select id="moneda" name="moneda">
+                            <option value="EUR" ${configs.general?.moneda?.value === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                            <option value="USD" ${configs.general?.moneda?.value === 'USD' ? 'selected' : ''}>USD - Dólar</option>
+                            <option value="GBP" ${configs.general?.moneda?.value === 'GBP' ? 'selected' : ''}>GBP - Libra</option>
+                        </select>
+                        <small>${configs.general?.moneda?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="simbolo_moneda">Símbolo de Moneda</label>
+                        <input type="text" id="simbolo_moneda" name="simbolo_moneda" maxlength="3"
+                               value="${configs.general?.simbolo_moneda?.value || '€'}">
+                        <small>${configs.general?.simbolo_moneda?.description || ''}</small>
+                    </div>
+                    <div class="config-item">
+                        <label for="idioma">Idioma</label>
+                        <select id="idioma" name="idioma">
+                            <option value="es_ES" ${configs.general?.idioma?.value === 'es_ES' ? 'selected' : ''}>Español</option>
+                            <option value="en_US" ${configs.general?.idioma?.value === 'en_US' ? 'selected' : ''}>English</option>
+                            <option value="fr_FR" ${configs.general?.idioma?.value === 'fr_FR' ? 'selected' : ''}>Français</option>
+                        </select>
+                        <small>${configs.general?.idioma?.description || ''}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="config-actions">
+                <button type="submit" class="btn-primary btn-large">💾 Guardar Toda la Configuración</button>
+                <button type="button" class="btn-secondary" onclick="resetConfigurationForm()">🔄 Resetear Formulario</button>
+            </div>
+        </form>
+    `;
+
+    document.querySelector('.configuration-content').innerHTML = html;
+    
+    // Inicializar eventos del formulario
+    initConfigurationEvents();
+}
+
+function initConfigurationEvents() {
+    // Formulario de configuración
+    document.getElementById('configurationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveAllConfiguration();
+    });
+
+    // Eventos para los selectores de moneda (sincronizar símbolo)
+    document.getElementById('moneda').addEventListener('change', function() {
+        const monedaSeleccionada = this.value;
+        const simboloInput = document.getElementById('simbolo_moneda');
+        
+        const simbolos = {
+            'EUR': '€',
+            'USD': ',',
+            'GBP': '£'
+        };
+        
+        if (simbolos[monedaSeleccionada]) {
+            simboloInput.value = simbolos[monedaSeleccionada];
+        }
+    });
+}
+
+function saveAllConfiguration() {
+    const form = document.getElementById('configurationForm');
+    const formData = new FormData(form);
+    formData.append('action', 'save_configuration');
+    formData.append('nonce', reservasAjax.nonce);
+
+    // Mostrar estado de carga
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalText = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = '⏳ Guardando...';
+
+    fetch(reservasAjax.ajax_url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Restaurar botón
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+        
+        if (data.success) {
+            alert('✅ ' + data.data);
+            
+            // Opcional: Mostrar notificación temporal
+            showConfigurationNotification('Configuración guardada exitosamente', 'success');
+        } else {
+            alert('❌ Error: ' + data.data);
+            showConfigurationNotification('Error guardando configuración: ' + data.data, 'error');
+        }
+    })
+    .catch(error => {
+        // Restaurar botón
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+        
+        console.error('Error:', error);
+        alert('❌ Error de conexión: ' + error.message);
+        showConfigurationNotification('Error de conexión', 'error');
+    });
+}
+
+function resetConfigurationForm() {
+    if (confirm('¿Estás seguro de que quieres resetear el formulario? Se perderán los cambios no guardados.')) {
+        loadConfigurationData(); // Recargar datos originales
+    }
+}
+
+function showConfigurationNotification(message, type) {
+    // Crear notificación temporal
+    const notification = document.createElement('div');
+    notification.className = `config-notification config-notification-${type}`;
+    notification.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">✕</button>
+    `;
+    
+    // Agregar al top de la página
+    const header = document.querySelector('.configuration-header');
+    header.insertAdjacentElement('afterend', notification);
+    
+    // Auto-eliminar después de 5 segundos
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}

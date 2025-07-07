@@ -450,25 +450,20 @@ function renderCalendar() {
         }
     };
 
+    // ✅ FUNCIÓN MEJORADA PARA PROCEDER A DETALLES
     window.proceedToDetails = function() {
         console.log('=== INICIANDO proceedToDetails ===');
         
-        console.log('URL actual:', window.location.href);
-        console.log('Pathname actual:', window.location.pathname);
-        
         if (!selectedDate || !selectedServiceId) {
             alert('Error: No hay fecha o servicio seleccionado');
-            console.log('selectedDate:', selectedDate, 'selectedServiceId:', selectedServiceId);
             return;
         }
         
         const service = findServiceById(selectedServiceId);
         if (!service) {
             alert('Error: No se encontraron datos del servicio');
-            console.log('Servicio no encontrado para ID:', selectedServiceId);
             return;
         }
-        console.log('Servicio encontrado:', service);
         
         const adultos = parseInt($('#adultos').val()) || 0;
         const residentes = parseInt($('#residentes').val()) || 0;
@@ -480,10 +475,7 @@ function renderCalendar() {
             const totalPriceElement = $('#total-price');
             if (totalPriceElement.length > 0) {
                 const totalPriceText = totalPriceElement.text();
-                console.log('Texto precio total:', totalPriceText);
                 totalPrice = totalPriceText.replace('€', '').trim();
-            } else {
-                console.log('Elemento #total-price no encontrado');
             }
         } catch (error) {
             console.error('Error obteniendo precio total:', error);
@@ -512,19 +504,15 @@ function renderCalendar() {
             const dataString = JSON.stringify(reservationData);
             sessionStorage.setItem('reservationData', dataString);
             console.log('Datos guardados en sessionStorage exitosamente');
-            
-            const savedData = sessionStorage.getItem('reservationData');
-            console.log('Verificación datos guardados:', savedData);
         } catch (error) {
             console.error('Error guardando en sessionStorage:', error);
             alert('Error guardando los datos de la reserva: ' + error.message);
             return;
         }
         
+        // ✅ CALCULAR URL DESTINO DE FORMA MEJORADA
         let targetUrl;
-        
         const currentPath = window.location.pathname;
-        console.log('Path actual:', currentPath);
         
         if (currentPath.includes('/bravo/')) {
             targetUrl = window.location.origin + '/bravo/detalles-reserva/';
@@ -539,7 +527,6 @@ function renderCalendar() {
             targetUrl = window.location.origin + '/detalles-reserva/';
         }
         
-        console.log('URL destino calculada:', targetUrl);
         console.log('Redirigiendo a:', targetUrl);
         window.location.href = targetUrl;
     };
@@ -549,7 +536,7 @@ function renderCalendar() {
 
 });
 
-// NUEVA FUNCIÓN: processReservation - DEBE ESTAR FUERA DEL DOCUMENT.READY
+// ✅ FUNCIÓN MEJORADA PARA PROCESAR RESERVA
 function processReservation() {
     console.log("=== PROCESANDO RESERVA REAL ===");
     
@@ -560,15 +547,11 @@ function processReservation() {
         return;
     }
     
-    console.log("reservasAjax disponible:", reservasAjax);
-    
     // Validar formularios
     const nombre = jQuery("[name='nombre']").val().trim();
     const apellidos = jQuery("[name='apellidos']").val().trim();
     const email = jQuery("[name='email']").val().trim();
     const telefono = jQuery("[name='telefono']").val().trim();
-    
-    console.log("Datos del formulario:", { nombre, apellidos, email, telefono });
     
     if (!nombre || !apellidos || !email || !telefono) {
         alert("Por favor, completa todos los campos de datos personales.");
@@ -606,10 +589,6 @@ function processReservation() {
     const originalText = processBtn.text();
     processBtn.prop("disabled", true).text("Procesando reserva...");
     
-    console.log("Enviando solicitud de procesamiento...");
-    console.log("URL AJAX:", reservasAjax.ajax_url);
-    console.log("Nonce:", reservasAjax.nonce);
-    
     // Preparar datos
     const ajaxData = {
         action: "process_reservation",
@@ -623,21 +602,15 @@ function processReservation() {
     
     console.log("Datos a enviar:", ajaxData);
     
-    // Enviar solicitud AJAX usando jQuery con configuración mejorada
+    // Enviar solicitud AJAX usando jQuery
     jQuery.ajax({
         url: reservasAjax.ajax_url,
         type: "POST",
         data: ajaxData,
         timeout: 30000,
         dataType: 'json',
-        beforeSend: function(xhr) {
-            console.log("Iniciando petición AJAX...");
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        },
-        success: function(response, textStatus, xhr) {
+        success: function(response) {
             console.log("Respuesta recibida:", response);
-            console.log("Status:", textStatus);
-            console.log("XHR:", xhr);
             
             // Rehabilitar botón
             processBtn.prop("disabled", false).text(originalText);
@@ -668,18 +641,11 @@ function processReservation() {
                 console.error("Error procesando reserva:", response);
                 const errorMsg = response && response.data ? response.data : "Error desconocido";
                 alert("Error procesando la reserva: " + errorMsg);
-                
-                if (response && response.data && typeof response.data === 'object') {
-                    console.error("Detalles del error:", response.data);
-                }
             }
         },
         error: function(xhr, status, error) {
             console.error("Error de conexión:", error);
             console.error("XHR completo:", xhr);
-            console.error("Status:", status);
-            console.error("Response text:", xhr.responseText);
-            console.error("Status code:", xhr.status);
             
             // Rehabilitar botón
             processBtn.prop("disabled", false).text(originalText);
@@ -694,181 +660,16 @@ function processReservation() {
                 errorMessage += " (Error 404: URL no encontrada)";
             } else if (xhr.status === 500) {
                 errorMessage += " (Error 500: Error interno del servidor)";
-                
-                if (xhr.responseText) {
-                    console.error("Contenido de respuesta 500:", xhr.responseText);
-                    
-                    if (xhr.responseText.includes("Fatal error") || xhr.responseText.includes("PHP")) {
-                        errorMessage += "\n\nRevisa el log de errores de PHP para más detalles.";
-                    }
-                }
-            } else if (status === 'timeout') {
-                errorMessage += " (Timeout: el servidor tardó demasiado en responder)";
-            } else if (status === 'parsererror') {
-                errorMessage += " (Error de parseo: respuesta no válida del servidor)";
-                console.error("Respuesta que causó error de parseo:", xhr.responseText);
             }
             
             errorMessage += "\n\nPor favor, inténtalo de nuevo. Si el problema persiste, contacta con soporte.";
             alert(errorMessage);
-            
-            if (xhr.responseText && xhr.responseText.length > 0) {
-                console.group("📄 Contenido completo de la respuesta del servidor:");
-                console.log(xhr.responseText);
-                console.groupEnd();
-                
-                const phpErrorMatch = xhr.responseText.match(/Fatal error:.*?in.*?on line \d+/i);
-                if (phpErrorMatch) {
-                    console.error("🔴 Error PHP detectado:", phpErrorMatch[0]);
-                }
-                
-                const phpWarningMatch = xhr.responseText.match(/Warning:.*?in.*?on line \d+/gi);
-                if (phpWarningMatch) {
-                    console.warn("⚠️ Warnings PHP detectados:", phpWarningMatch);
-                }
-            }
-        },
-        complete: function(xhr, status) {
-            console.log("Petición AJAX completada con status:", status);
-            console.log("Headers de respuesta:", xhr.getAllResponseHeaders());
         }
     });
 }
 
-// FUNCIONES PARA LA PÁGINA DE DETALLES
-function loadReservationData() {
-    console.log("=== INICIANDO CARGA DE DATOS ===");
-    
-    try {
-        const dataString = sessionStorage.getItem("reservationData");
-        console.log("Datos en sessionStorage:", dataString);
-        
-        if (!dataString) {
-            alert("No hay datos de reserva. Redirigiendo...");
-            window.history.back();
-            return;
-        }
-        
-        const data = JSON.parse(dataString);
-        fillReservationDetails(data);
-        
-    } catch (error) {
-        console.error("Error cargando datos:", error);
-        alert("Error cargando los datos de la reserva");
-    }
-}
-
-function fillReservationDetails(data) {
-    console.log("=== RELLENANDO DETALLES ===");
-    
-    // Formatear fecha
-    let fechaFormateada = "-";
-    if (data.fecha) {
-        const fechaObj = new Date(data.fecha + "T00:00:00");
-        fechaFormateada = fechaObj.toLocaleDateString("es-ES", {
-            weekday: "long",
-            year: "numeric", 
-            month: "long",
-            day: "numeric"
-        });
-    }
-    
-    // Rellenar datos
-    updateElementText("#fecha-ida", fechaFormateada);
-    updateElementText("#hora-ida", data.hora_ida || "-");
-    updateElementText("#fecha-vuelta", fechaFormateada);
-    updateElementText("#hora-vuelta", "13:30");
-    
-    updateElementText("#num-adultos", data.adultos || 0);
-    updateElementText("#num-residentes", data.residentes || 0);
-    updateElementText("#num-ninos-5-12", data.ninos_5_12 || 0);
-    updateElementText("#num-ninos-menores", data.ninos_menores || 0);
-    
-    // Calcular precios
-    const precioAdulto = parseFloat(data.precio_adulto) || 0;
-    const precioNino = parseFloat(data.precio_nino) || 0;
-    const precioResidente = parseFloat(data.precio_residente) || 0;
-    
-    const adultos = parseInt(data.adultos) || 0;
-    const residentes = parseInt(data.residentes) || 0;
-    const ninos_5_12 = parseInt(data.ninos_5_12) || 0;
-    
-    const importeBase = (adultos + residentes + ninos_5_12) * precioAdulto;
-    const descuentoResidentes = residentes * (precioAdulto - precioResidente);
-    const descuentoNinos = ninos_5_12 * (precioAdulto - precioNino);
-    
-    updateElementText("#importe-base", formatPrice(importeBase));
-    updateElementText("#descuento-residentes", formatPrice(-descuentoResidentes));
-    updateElementText("#descuento-menores", formatPrice(-descuentoNinos));
-    updateElementText("#total-reserva", formatPrice(data.total_price || "0"));
-    
-    if (data.descuento_grupo && parseFloat(data.descuento_grupo) > 0) {
-        updateElementText("#descuento-grupo-detalle", formatPrice(-parseFloat(data.descuento_grupo)));
-        jQuery("#descuento-grupo-row").show();
-    }
-}
-
-function updateElementText(selector, value) {
-    const element = jQuery(selector);
-    if (element.length > 0) {
-        element.text(value);
-    }
-}
-
-function formatPrice(price) {
-    const numPrice = parseFloat(price) || 0;
-    return numPrice.toFixed(2) + "€";
-}
-
+// ✅ FUNCIONES AUXILIARES PARA DETALLES
 function goBackToBooking() {
     sessionStorage.removeItem("reservationData");
     window.history.back();
-}
-
-function processReservation() {
-    console.log("=== PROCESANDO RESERVA ===");
-    
-    const nombre = jQuery("[name='nombre']").val().trim();
-    const apellidos = jQuery("[name='apellidos']").val().trim();
-    const email = jQuery("[name='email']").val().trim();
-    const telefono = jQuery("[name='telefono']").val().trim();
-    
-    if (!nombre || !apellidos || !email || !telefono) {
-        alert("Por favor, completa todos los campos.");
-        return;
-    }
-    
-    const reservationData = JSON.parse(sessionStorage.getItem("reservationData"));
-    
-    const processBtn = jQuery(".process-btn");
-    processBtn.prop("disabled", true).text("Procesando...");
-    
-    jQuery.ajax({
-        url: reservasAjax.ajax_url,
-        type: "POST",
-        data: {
-            action: "process_reservation",
-            nonce: reservasAjax.nonce,
-            nombre: nombre,
-            apellidos: apellidos,
-            email: email,
-            telefono: telefono,
-            reservation_data: JSON.stringify(reservationData)
-        },
-        success: function(response) {
-            processBtn.prop("disabled", false).text("PROCESAR RESERVA");
-            
-            if (response.success) {
-                alert("¡RESERVA CONFIRMADA!\n\nLOCALIZADOR: " + response.data.localizador);
-                sessionStorage.removeItem("reservationData");
-                window.location.href = "/";
-            } else {
-                alert("Error: " + response.data);
-            }
-        },
-        error: function() {
-            processBtn.prop("disabled", false).text("PROCESAR RESERVA");
-            alert("Error de conexión");
-        }
-    });
 }

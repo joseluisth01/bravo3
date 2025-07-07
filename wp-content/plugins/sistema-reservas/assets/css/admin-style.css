@@ -918,3 +918,304 @@ body {
     color: #6C757D;
     font-style: italic;
 }
+
+
+/* Validación visual para campos de porcentaje */
+#porcentajeDescuento:invalid,
+#bulkPorcentajeDescuento:invalid {
+    border-color: #DC3545;
+}
+
+#porcentajeDescuento:valid,
+#bulkPorcentajeDescuento:valid {
+    border-color: #28A745;
+}
+
+/* Estilo para placeholder mejorado */
+#porcentajeDescuento::placeholder,
+#bulkPorcentajeDescuento::placeholder {
+    color: #6C757D;
+    font-style: italic;
+}
+
+/* ========== ESTILOS PARA CONFIGURACIÓN ========== */
+.configuration-management {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 20px;
+    background: #f1f1f1;
+    min-height: 100vh;
+}
+
+.configuration-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.configuration-header h1 {
+    margin: 0;
+    color: #23282d;
+    font-size: 28px;
+}
+
+.configuration-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.configuration-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.configuration-form {
+    padding: 0;
+}
+
+.config-section {
+    border-bottom: 1px solid #E9ECEF;
+    padding: 30px;
+}
+
+.config-section:last-child {
+    border-bottom: none;
+}
+
+.config-section h3 {
+    margin: 0 0 25px 0;
+    color: #23282d;
+    font-size: 20px;
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0073aa;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.config-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.config-item.config-checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-item label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.config-checkbox label {
+    margin-bottom: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-item input,
+.config-item select,
+.config-item textarea {
+    padding: 12px;
+    border: 1px solid #CED4DA;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background: white;
+}
+
+.config-item input:focus,
+.config-item select:focus,
+.config-item textarea:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.1);
+}
+
+.config-item input[type="color"] {
+    height: 50px;
+    padding: 4px;
+    cursor: pointer;
+}
+
+.config-item input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    transform: scale(1.2);
+    accent-color: #0073aa;
+}
+
+.config-item small {
+    color: #6C757D;
+    font-size: 12px;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.config-actions {
+    padding: 30px;
+    background: #F8F9FA;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.btn-large {
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    min-width: 200px;
+}
+
+/* Notificaciones */
+.config-notification {
+    padding: 15px 20px;
+    margin: 20px 0;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    animation: slideDown 0.3s ease-out;
+}
+
+.config-notification-success {
+    background: #D4EDDA;
+    color: #155724;
+    border: 1px solid #C3E6CB;
+}
+
+.config-notification-error {
+    background: #F8D7DA;
+    color: #721C24;
+    border: 1px solid #F5C6CB;
+}
+
+.config-notification button {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 15px;
+    opacity: 0.7;
+}
+
+.config-notification button:hover {
+    opacity: 1;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Estados especiales para inputs */
+.config-item input:invalid {
+    border-color: #DC3545;
+}
+
+.config-item input:valid {
+    border-color: #28A745;
+}
+
+.config-item input[type="email"]:invalid {
+    border-color: #DC3545;
+}
+
+.config-item input[type="email"]:valid {
+    border-color: #28A745;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .configuration-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .configuration-actions {
+        justify-content: center;
+    }
+
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .configuration-management {
+        padding: 10px;
+    }
+
+    .config-section {
+        padding: 20px;
+    }
+
+    .config-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* Mejoras visuales adicionales */
+.config-section:nth-child(even) {
+    background: #FAFBFC;
+}
+
+.config-item input[type="time"] {
+    font-family: monospace;
+    font-size: 16px;
+}
+
+.config-item textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+/* Tooltip para ayuda */
+.config-item .help-tooltip {
+    background: #6C757D;
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    position: absolute;
+    z-index: 1000;
+    white-space: nowrap;
+    margin-top: -30px;
+    margin-left: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.config-item:hover .help-tooltip {
+    opacity: 1;
+}

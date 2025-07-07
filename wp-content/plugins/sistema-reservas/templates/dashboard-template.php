@@ -3,11 +3,13 @@ $user = $_SESSION['reservas_user'];
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
+
 <head>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema de Reservas - Dashboard</title>
 </head>
+
 <body>
     <div class="dashboard-header">
         <h1>Sistema de Reservas</h1>
@@ -47,12 +49,11 @@ $user = $_SESSION['reservas_user'];
             <div class="menu-actions">
                 <h3>Acciones Disponibles</h3>
                 <div class="action-buttons">
-                    <button class="action-btn" onclick="alert('Función en desarrollo')">👥 Gestionar Usuarios</button>
                     <button class="action-btn" onclick="loadCalendarSection()">📅 Gestionar Calendario</button>
-                    <button class="action-btn" onclick="alert('Función en desarrollo')">🎫 Ver Reservas</button>
-                    <button class="action-btn" onclick="alert('Función en desarrollo')">⚙️ Configuración</button>
-                    <button class="action-btn" onclick="alert('Función en desarrollo')">📊 Informes</button>
+                    <button class="action-btn" onclick="loadDiscountsConfigSection()">💰 Configurar Descuentos</button>
+                    <button class="action-btn" onclick="loadConfigurationSection()">⚙️ Configuración</button>
                     <button class="action-btn" onclick="alert('Función en desarrollo')">🏢 Gestionar Agencias</button>
+                    <button class="action-btn" onclick="alert('Función en desarrollo')">📊 Informes</button>
                 </div>
             </div>
         <?php endif; ?>
@@ -70,4 +71,5 @@ $user = $_SESSION['reservas_user'];
         </div>
     </div>
 </body>
+
 </html>

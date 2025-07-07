@@ -53,7 +53,8 @@ private function load_dependencies()
             'includes/class-dashboard.php',
             'includes/class-calendar-admin.php',
             'includes/class-discounts-admin.php',
-            'includes/class-reservas-processor.php', // NUEVA LÍNEA
+            'includes/class-configuration-admin.php', // NUEVA LÍNEA
+            'includes/class-reservas-processor.php',
             'includes/class-frontend.php',
         );
 
@@ -254,11 +255,31 @@ private function create_tables()
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_discounts);
 
+        // NUEVA: Tabla de configuración
+$table_configuration = $wpdb->prefix . 'reservas_configuration';
+$sql_configuration = "CREATE TABLE $table_configuration (
+    id mediumint(9) NOT NULL AUTO_INCREMENT,
+    config_key varchar(100) NOT NULL UNIQUE,
+    config_value longtext,
+    config_group varchar(50) DEFAULT 'general',
+    description text,
+    created_at datetime DEFAULT CURRENT_TIMESTAMP,
+    updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY config_key (config_key),
+    KEY config_group (config_group)
+) $charset_collate;";
+
+require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+dbDelta($sql_configuration);
+
         // Crear usuario super admin inicial
         $this->create_super_admin();
 
         // Crear regla de descuento por defecto
         $this->create_default_discount_rule();
+
+        $this->create_default_configuration();
     }
 
     private function create_super_admin()
@@ -311,6 +332,15 @@ private function create_tables()
             );
         }
     }
+
+    private function create_default_configuration()
+{
+    // La configuración por defecto la crea la propia clase ReservasConfigurationAdmin
+    if (class_exists('ReservasConfigurationAdmin')) {
+        $config_admin = new ReservasConfigurationAdmin();
+        $config_admin->maybe_create_table();
+    }
+}
 }
 
 // Shortcode para usar en páginas de WordPress (alternativa)

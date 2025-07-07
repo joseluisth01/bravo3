@@ -1,12 +1,15 @@
 <?php
+
 /**
  * Clase para procesar reservas - VERSIÓN CON DEBUG MEJORADO
  * Archivo: wp-content/plugins/sistema-reservas/includes/class-reservas-processor.php
  */
 
-class ReservasProcessor {
-    
-    public function __construct() {
+class ReservasProcessor
+{
+
+    public function __construct()
+    {
         // Hooks AJAX para procesar reservas
         add_action('wp_ajax_process_reservation', array($this, 'process_reservation'));
         add_action('wp_ajax_nopriv_process_reservation', array($this, 'process_reservation'));
@@ -15,27 +18,28 @@ class ReservasProcessor {
     /**
      * Procesar una nueva reserva - CON DEBUG MEJORADO
      */
-    public function process_reservation() {
+    public function process_reservation()
+    {
         // Limpiar cualquier output buffer que pueda interferir
         if (ob_get_level()) {
             ob_clean();
         }
-        
+
         // Headers para asegurar JSON correcto
         header('Content-Type: application/json');
-        
+
         try {
             error_log('=== INICIANDO PROCESS_RESERVATION ===');
             error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
             error_log('POST data: ' . print_r($_POST, true));
-            
+
             // Verificar que es una petición POST
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 error_log('ERROR: No es petición POST');
                 wp_send_json_error('Método no permitido');
                 return;
             }
-            
+
             // Verificar que tenemos datos POST
             if (empty($_POST)) {
                 error_log('ERROR: POST está vacío');
@@ -49,7 +53,7 @@ class ReservasProcessor {
                 wp_send_json_error('Falta nonce de seguridad');
                 return;
             }
-            
+
             if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
                 error_log('ERROR: Nonce inválido - Recibido: ' . $_POST['nonce']);
                 error_log('ERROR: Nonce esperado: ' . wp_create_nonce('reservas_nonce'));
@@ -134,10 +138,9 @@ class ReservasProcessor {
                     'precio_final' => $calculo_precio['precio']['precio_final']
                 )
             );
-            
+
             error_log('SUCCESS: Respuesta preparada - ' . print_r($response_data, true));
             wp_send_json_success($response_data);
-
         } catch (Exception $e) {
             error_log('EXCEPTION: ' . $e->getMessage());
             error_log('STACK TRACE: ' . $e->getTraceAsString());
@@ -152,9 +155,10 @@ class ReservasProcessor {
     /**
      * Validar datos personales del formulario
      */
-    private function validar_datos_personales() {
+    private function validar_datos_personales()
+    {
         error_log('=== VALIDANDO DATOS PERSONALES ===');
-        
+
         $nombre = sanitize_text_field($_POST['nombre'] ?? '');
         $apellidos = sanitize_text_field($_POST['apellidos'] ?? '');
         $email = sanitize_email($_POST['email'] ?? '');
@@ -193,9 +197,10 @@ class ReservasProcessor {
     /**
      * Validar datos de reserva desde sessionStorage
      */
-    private function validar_datos_reserva() {
+    private function validar_datos_reserva()
+    {
         error_log('=== VALIDANDO DATOS DE RESERVA ===');
-        
+
         // Verificar que tenemos los datos de reserva
         if (!isset($_POST['reservation_data'])) {
             return array('valido' => false, 'error' => 'Faltan datos de reserva');
@@ -204,7 +209,7 @@ class ReservasProcessor {
         // Decodificar datos de reserva
         $reserva_data_json = stripslashes($_POST['reservation_data']);
         error_log('JSON recibido: ' . $reserva_data_json);
-        
+
         $reserva_data = json_decode($reserva_data_json, true);
 
         if (!$reserva_data || json_last_error() !== JSON_ERROR_NONE) {
@@ -249,10 +254,11 @@ class ReservasProcessor {
     /**
      * Verificar disponibilidad del servicio
      */
-    private function verificar_disponibilidad($service_id, $personas_necesarias) {
+    private function verificar_disponibilidad($service_id, $personas_necesarias)
+    {
         error_log('=== VERIFICANDO DISPONIBILIDAD ===');
         error_log("Service ID: $service_id, Personas necesarias: $personas_necesarias");
-        
+
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -270,7 +276,7 @@ class ReservasProcessor {
 
         if ($servicio->plazas_disponibles < $personas_necesarias) {
             return array(
-                'disponible' => false, 
+                'disponible' => false,
                 'error' => "Solo quedan {$servicio->plazas_disponibles} plazas disponibles, necesitas {$personas_necesarias}"
             );
         }
@@ -287,11 +293,12 @@ class ReservasProcessor {
     }
 
     /**
-     * Recalcular precio para verificar
+     * Recalcular precio para verificar - VERSIÓN ARREGLADA
      */
-    private function recalcular_precio($datos_reserva) {
+    private function recalcular_precio($datos_reserva)
+    {
         error_log('=== RECALCULANDO PRECIO ===');
-        
+
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -308,52 +315,74 @@ class ReservasProcessor {
         $adultos = intval($datos_reserva['adultos']);
         $residentes = intval($datos_reserva['residentes']);
         $ninos_5_12 = intval($datos_reserva['ninos_5_12']);
+        $ninos_menores = intval($datos_reserva['ninos_menores']);
 
-        // Calcular precio base
+        // ✅ CALCULAR TOTAL DE PERSONAS QUE OCUPAN PLAZA
+        $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
+        // Los niños menores de 5 años NO ocupan plaza
+
+        error_log("Personas calculadas - Adultos: $adultos, Residentes: $residentes, Niños 5-12: $ninos_5_12, Menores: $ninos_menores");
+        error_log("Total personas con plaza: $total_personas_con_plaza");
+
+        // ✅ CALCULAR PRECIO BASE (todos empiezan pagando precio de adulto)
         $precio_base = 0;
         $precio_base += $adultos * $servicio->precio_adulto;
         $precio_base += $residentes * $servicio->precio_adulto;
         $precio_base += $ninos_5_12 * $servicio->precio_adulto;
+        // Los niños menores NO se suman al precio base
 
-        // Calcular descuentos
+        error_log("Precio base calculado: $precio_base");
+
+        // ✅ CALCULAR DESCUENTOS INDIVIDUALES
         $descuento_total = 0;
-        
-        // Descuento residentes
+
+        // Descuento residentes (diferencia entre precio adulto y residente)
         $descuento_residentes = $residentes * ($servicio->precio_adulto - $servicio->precio_residente);
         $descuento_total += $descuento_residentes;
+        error_log("Descuento residentes: $descuento_residentes");
 
-        // Descuento niños
+        // Descuento niños (diferencia entre precio adulto y niño)
         $descuento_ninos = $ninos_5_12 * ($servicio->precio_adulto - $servicio->precio_nino);
         $descuento_total += $descuento_ninos;
+        error_log("Descuento niños: $descuento_ninos");
 
-        // Descuento por grupo
+        // ✅ CALCULAR DESCUENTO POR GRUPO (solo si hay suficientes personas)
         $descuento_grupo = 0;
         $regla_aplicada = null;
-        $total_personas_con_plaza = $adultos + $residentes + $ninos_5_12;
 
         if ($total_personas_con_plaza > 0) {
             if (!class_exists('ReservasDiscountsAdmin')) {
                 require_once RESERVAS_PLUGIN_PATH . 'includes/class-discounts-admin.php';
             }
 
+            // Calcular subtotal después de descuentos individuales
             $subtotal = $precio_base - $descuento_total;
+            error_log("Subtotal antes de descuento por grupo: $subtotal");
+
             $discount_info = ReservasDiscountsAdmin::calculate_discount($total_personas_con_plaza, $subtotal, 'total');
+
+            error_log("Información de descuento por grupo: " . print_r($discount_info, true));
 
             if ($discount_info['discount_applied']) {
                 $descuento_grupo = $discount_info['discount_amount'];
                 $descuento_total += $descuento_grupo;
                 $regla_aplicada = $discount_info;
+                error_log("✅ Descuento por grupo aplicado: $descuento_grupo");
+            } else {
+                error_log("❌ No se aplicó descuento por grupo (insuficientes personas: $total_personas_con_plaza)");
             }
         }
 
-        // Descuento específico del servicio
+        // ✅ DESCUENTO ESPECÍFICO DEL SERVICIO
         $descuento_servicio = 0;
         if ($servicio->tiene_descuento && floatval($servicio->porcentaje_descuento) > 0) {
             $subtotal_actual = $precio_base - $descuento_total;
             $descuento_servicio = ($subtotal_actual * floatval($servicio->porcentaje_descuento)) / 100;
             $descuento_total += $descuento_servicio;
+            error_log("Descuento del servicio: $descuento_servicio");
         }
 
+        // ✅ PRECIO FINAL
         $precio_final = $precio_base - $descuento_total;
         if ($precio_final < 0) $precio_final = 0;
 
@@ -365,10 +394,11 @@ class ReservasProcessor {
             'descuento_grupo' => round($descuento_grupo, 2),
             'descuento_servicio' => round($descuento_servicio, 2),
             'precio_final' => round($precio_final, 2),
-            'regla_descuento_aplicada' => $regla_aplicada
+            'regla_descuento_aplicada' => $regla_aplicada,
+            'total_personas_con_plaza' => $total_personas_con_plaza
         );
 
-        error_log('Precio calculado: ' . print_r($precio_info, true));
+        error_log('Precio calculado final: ' . print_r($precio_info, true));
 
         return array('valido' => true, 'precio' => $precio_info);
     }
@@ -376,9 +406,10 @@ class ReservasProcessor {
     /**
      * Crear reserva en la base de datos
      */
-    private function crear_reserva($datos_personales, $datos_reserva, $calculo_precio) {
+    private function crear_reserva($datos_personales, $datos_reserva, $calculo_precio)
+    {
         error_log('=== CREANDO RESERVA ===');
-        
+
         global $wpdb;
 
         $table_reservas = $wpdb->prefix . 'reservas_reservas';
@@ -438,10 +469,11 @@ class ReservasProcessor {
     /**
      * Actualizar plazas disponibles del servicio
      */
-    private function actualizar_plazas_disponibles($service_id, $personas_ocupadas) {
+    private function actualizar_plazas_disponibles($service_id, $personas_ocupadas)
+    {
         error_log('=== ACTUALIZANDO PLAZAS DISPONIBLES ===');
         error_log("Service ID: $service_id, Personas: $personas_ocupadas");
-        
+
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -474,10 +506,11 @@ class ReservasProcessor {
     /**
      * Eliminar reserva (en caso de error)
      */
-    private function eliminar_reserva($reserva_id) {
+    private function eliminar_reserva($reserva_id)
+    {
         error_log('=== ELIMINANDO RESERVA POR ERROR ===');
         error_log('ID de reserva a eliminar: ' . $reserva_id);
-        
+
         global $wpdb;
 
         $table_reservas = $wpdb->prefix . 'reservas_reservas';
@@ -489,7 +522,8 @@ class ReservasProcessor {
     /**
      * Generar localizador único
      */
-    private function generar_localizador() {
+    private function generar_localizador()
+    {
         global $wpdb;
 
         $table_reservas = $wpdb->prefix . 'reservas_reservas';
