@@ -1053,7 +1053,7 @@ function renderConfigurationForm(configs) {
                     <div class="config-item">
                         <label for="color_primario">Color Primario</label>
                         <input type="color" id="color_primario" name="color_primario" 
-                               value="${configs.personalizacion?.color_primario?.value || '#F4D03F'}">
+                               value="${configs.personalizacion?.color_primario?.value || '#EFCF4B'}">
                         <small>${configs.personalizacion?.color_primario?.description || ''}</small>
                     </div>
                     <div class="config-item">

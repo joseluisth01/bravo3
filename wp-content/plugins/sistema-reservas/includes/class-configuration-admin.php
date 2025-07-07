@@ -149,7 +149,7 @@ class ReservasConfigurationAdmin {
             ),
             array(
                 'config_key' => 'color_primario',
-                'config_value' => '#F4D03F',
+                'config_value' => '#EFCF4B',
                 'config_group' => 'personalizacion',
                 'description' => 'Color primario del sistema'
             ),
