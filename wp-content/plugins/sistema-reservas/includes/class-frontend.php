@@ -1024,13 +1024,13 @@ function goBackToBooking() {
 }
 
 function processReservation() {
-    console.log("=== PROCESANDO RESERVA ===");
+    console.log("=== PROCESANDO RESERVA REAL ===");
     
     // Validar formularios
-    const nombre = jQuery("[name=\"nombre\"]").val();
-    const apellidos = jQuery("[name=\"apellidos\"]").val();
-    const email = jQuery("[name=\"email\"]").val();
-    const telefono = jQuery("[name=\"telefono\"]").val();
+    const nombre = jQuery("[name=\"nombre\"]").val().trim();
+    const apellidos = jQuery("[name=\"apellidos\"]").val().trim();
+    const email = jQuery("[name=\"email\"]").val().trim();
+    const telefono = jQuery("[name=\"telefono\"]").val().trim();
     
     console.log("Datos del formulario:", { nombre, apellidos, email, telefono });
     
@@ -1038,6 +1038,42 @@ function processReservation() {
         alert("Por favor, completa todos los campos de datos personales.");
         return;
     }
+
+    let reservationData;
+    try {
+        const dataString = sessionStorage.getItem("reservationData");
+        if (!dataString) {
+            alert("Error: No hay datos de reserva. Por favor, vuelve a hacer la reserva.");
+            window.history.back();
+            return;
+        }
+        
+        reservationData = JSON.parse(dataString);
+        console.log("Datos de reserva recuperados:", reservationData);
+    } catch (error) {
+        console.error("Error parseando datos de reserva:", error);
+        alert("Error en los datos de reserva. Por favor, vuelve a hacer la reserva.");
+        window.history.back();
+        return;
+    }
+
+    const processBtn = jQuery(".process-btn");
+    const originalText = processBtn.text();
+    processBtn.prop("disabled", true).text("Procesando reserva...");
+    
+    // Preparar datos para enviar
+    const formData = new FormData();
+    formData.append("action", "process_reservation");
+    formData.append("nonce", reservasAjax.nonce);
+    
+    // Datos personales
+    formData.append("nombre", nombre);
+    formData.append("apellidos", apellidos);
+    formData.append("email", email);
+    formData.append("telefono", telefono);
+    
+    // Datos de reserva
+    formData.append("reservation_data", JSON.stringify(reservationData));
     
     // Validar email básico
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

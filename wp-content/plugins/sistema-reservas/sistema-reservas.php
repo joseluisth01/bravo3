@@ -44,7 +44,7 @@ class SistemaReservas
         add_action('template_redirect', array($this, 'template_redirect'));
     }
 
-    private function load_dependencies()
+private function load_dependencies()
     {
         $files = array(
             'includes/class-database.php',
@@ -52,7 +52,8 @@ class SistemaReservas
             'includes/class-admin.php',
             'includes/class-dashboard.php',
             'includes/class-calendar-admin.php',
-            'includes/class-discounts-admin.php', // Nueva clase para descuentos
+            'includes/class-discounts-admin.php',
+            'includes/class-reservas-processor.php', // NUEVA LÍNEA
             'includes/class-frontend.php',
         );
 
@@ -82,6 +83,11 @@ class SistemaReservas
         // Inicializar nueva clase de descuentos
         if (class_exists('ReservasDiscountsAdmin')) {
             $this->discounts_admin = new ReservasDiscountsAdmin();
+        }
+
+        // NUEVA LÍNEA: Inicializar procesador de reservas
+        if (class_exists('ReservasProcessor')) {
+            new ReservasProcessor();
         }
 
         if (class_exists('ReservasFrontend')) {
@@ -144,7 +150,7 @@ class SistemaReservas
         flush_rewrite_rules();
     }
 
-    private function create_tables()
+private function create_tables()
     {
         global $wpdb;
 
@@ -179,6 +185,8 @@ class SistemaReservas
             precio_adulto decimal(10,2) NOT NULL,
             precio_nino decimal(10,2) NOT NULL,
             precio_residente decimal(10,2) NOT NULL,
+            tiene_descuento tinyint(1) DEFAULT 0,
+            porcentaje_descuento decimal(5,2) DEFAULT 0.00,
             status enum('active', 'inactive') DEFAULT 'active',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -190,6 +198,41 @@ class SistemaReservas
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql_servicios);
+
+        // NUEVA: Tabla de reservas
+        $table_reservas = $wpdb->prefix . 'reservas_reservas';
+        $sql_reservas = "CREATE TABLE $table_reservas (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            localizador varchar(20) NOT NULL UNIQUE,
+            servicio_id mediumint(9) NOT NULL,
+            fecha date NOT NULL,
+            hora time NOT NULL,
+            nombre varchar(100) NOT NULL,
+            apellidos varchar(100) NOT NULL,
+            email varchar(100) NOT NULL,
+            telefono varchar(20) NOT NULL,
+            adultos int(11) DEFAULT 0,
+            residentes int(11) DEFAULT 0,
+            ninos_5_12 int(11) DEFAULT 0,
+            ninos_menores int(11) DEFAULT 0,
+            total_personas int(11) NOT NULL,
+            precio_base decimal(10,2) NOT NULL,
+            descuento_total decimal(10,2) DEFAULT 0.00,
+            precio_final decimal(10,2) NOT NULL,
+            regla_descuento_aplicada TEXT NULL,
+            estado enum('pendiente', 'confirmada', 'cancelada') DEFAULT 'confirmada',
+            metodo_pago varchar(50) DEFAULT 'simulado',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY servicio_id (servicio_id),
+            KEY fecha (fecha),
+            KEY estado (estado),
+            KEY localizador (localizador)
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql_reservas);
 
         // Tabla de reglas de descuento
         $table_discounts = $wpdb->prefix . 'reservas_discount_rules';
