@@ -1,6 +1,6 @@
 <?php
 /**
- * Clase para procesar reservas
+ * Clase para procesar reservas - VERSIÓN CON DEBUG MEJORADO
  * Archivo: wp-content/plugins/sistema-reservas/includes/class-reservas-processor.php
  */
 
@@ -13,90 +13,154 @@ class ReservasProcessor {
     }
 
     /**
-     * Procesar una nueva reserva
+     * Procesar una nueva reserva - CON DEBUG MEJORADO
      */
     public function process_reservation() {
-        error_log('=== INICIANDO PROCESS_RESERVATION ===');
-        error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
-        error_log('POST data keys: ' . implode(', ', array_keys($_POST)));
-        
-        if (isset($_POST['action'])) {
-            error_log('Action: ' . $_POST['action']);
+        // Limpiar cualquier output buffer que pueda interferir
+        if (ob_get_level()) {
+            ob_clean();
         }
         
-        if (isset($_POST['nonce'])) {
-            error_log('Nonce recibido: ' . $_POST['nonce']);
-            error_log('Nonce esperado: ' . wp_create_nonce('reservas_nonce'));
+        // Headers para asegurar JSON correcto
+        header('Content-Type: application/json');
+        
+        try {
+            error_log('=== INICIANDO PROCESS_RESERVATION ===');
+            error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
+            error_log('POST data: ' . print_r($_POST, true));
+            
+            // Verificar que es una petición POST
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                error_log('ERROR: No es petición POST');
+                wp_send_json_error('Método no permitido');
+                return;
+            }
+            
+            // Verificar que tenemos datos POST
+            if (empty($_POST)) {
+                error_log('ERROR: POST está vacío');
+                wp_send_json_error('No hay datos POST');
+                return;
+            }
+
+            // Verificar nonce
+            if (!isset($_POST['nonce'])) {
+                error_log('ERROR: No hay nonce en la petición');
+                wp_send_json_error('Falta nonce de seguridad');
+                return;
+            }
+            
+            if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
+                error_log('ERROR: Nonce inválido - Recibido: ' . $_POST['nonce']);
+                error_log('ERROR: Nonce esperado: ' . wp_create_nonce('reservas_nonce'));
+                wp_send_json_error('Error de seguridad - nonce inválido');
+                return;
+            }
+
+            error_log('SUCCESS: Nonce verificado correctamente');
+
+            // Verificar que tenemos la acción correcta
+            if (!isset($_POST['action']) || $_POST['action'] !== 'process_reservation') {
+                error_log('ERROR: Acción incorrecta - Recibida: ' . ($_POST['action'] ?? 'ninguna'));
+                wp_send_json_error('Acción incorrecta');
+                return;
+            }
+
+            // Validar y sanitizar datos del formulario
+            $datos_personales = $this->validar_datos_personales();
+            if (!$datos_personales['valido']) {
+                error_log('ERROR: Datos personales inválidos - ' . $datos_personales['error']);
+                wp_send_json_error($datos_personales['error']);
+                return;
+            }
+            error_log('SUCCESS: Datos personales validados');
+
+            // Validar y sanitizar datos de la reserva
+            $datos_reserva = $this->validar_datos_reserva();
+            if (!$datos_reserva['valido']) {
+                error_log('ERROR: Datos de reserva inválidos - ' . $datos_reserva['error']);
+                wp_send_json_error($datos_reserva['error']);
+                return;
+            }
+            error_log('SUCCESS: Datos de reserva validados');
+
+            // Verificar disponibilidad del servicio
+            $servicio = $this->verificar_disponibilidad($datos_reserva['datos']['service_id'], $datos_reserva['datos']['total_personas']);
+            if (!$servicio['disponible']) {
+                error_log('ERROR: Servicio no disponible - ' . $servicio['error']);
+                wp_send_json_error($servicio['error']);
+                return;
+            }
+            error_log('SUCCESS: Servicio disponible');
+
+            // Recalcular precios
+            $calculo_precio = $this->recalcular_precio($datos_reserva['datos']);
+            if (!$calculo_precio['valido']) {
+                error_log('ERROR: Error en cálculo de precio - ' . $calculo_precio['error']);
+                wp_send_json_error($calculo_precio['error']);
+                return;
+            }
+            error_log('SUCCESS: Precio calculado');
+
+            // Crear la reserva en la base de datos
+            $resultado_reserva = $this->crear_reserva($datos_personales['datos'], $datos_reserva['datos'], $calculo_precio['precio']);
+            if (!$resultado_reserva['exito']) {
+                error_log('ERROR: Error creando reserva - ' . $resultado_reserva['error']);
+                wp_send_json_error($resultado_reserva['error']);
+                return;
+            }
+            error_log('SUCCESS: Reserva creada con ID: ' . $resultado_reserva['reserva_id']);
+
+            // Actualizar plazas disponibles
+            $actualizacion = $this->actualizar_plazas_disponibles($datos_reserva['datos']['service_id'], $datos_reserva['datos']['total_personas']);
+            if (!$actualizacion['exito']) {
+                error_log('ERROR: Error actualizando plazas - ' . $actualizacion['error']);
+                // Si falla la actualización, eliminar la reserva creada
+                $this->eliminar_reserva($resultado_reserva['reserva_id']);
+                wp_send_json_error('Error actualizando disponibilidad. Reserva cancelada.');
+                return;
+            }
+            error_log('SUCCESS: Plazas actualizadas');
+
+            // Respuesta exitosa
+            $response_data = array(
+                'mensaje' => 'Reserva procesada correctamente',
+                'localizador' => $resultado_reserva['localizador'],
+                'reserva_id' => $resultado_reserva['reserva_id'],
+                'detalles' => array(
+                    'fecha' => $datos_reserva['datos']['fecha'],
+                    'hora' => $datos_reserva['datos']['hora_ida'],
+                    'personas' => $datos_reserva['datos']['total_personas'],
+                    'precio_final' => $calculo_precio['precio']['precio_final']
+                )
+            );
+            
+            error_log('SUCCESS: Respuesta preparada - ' . print_r($response_data, true));
+            wp_send_json_success($response_data);
+
+        } catch (Exception $e) {
+            error_log('EXCEPTION: ' . $e->getMessage());
+            error_log('STACK TRACE: ' . $e->getTraceAsString());
+            wp_send_json_error('Error interno del servidor: ' . $e->getMessage());
+        } catch (Error $e) {
+            error_log('FATAL ERROR: ' . $e->getMessage());
+            error_log('STACK TRACE: ' . $e->getTraceAsString());
+            wp_send_json_error('Error fatal del servidor: ' . $e->getMessage());
         }
-
-        // Verificar nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'reservas_nonce')) {
-            error_log('ERROR: Nonce inválido');
-            wp_send_json_error('Error de seguridad');
-        }
-
-        error_log('Nonce verificado correctamente');
-
-        // Validar y sanitizar datos del formulario
-        $datos_personales = $this->validar_datos_personales();
-        if (!$datos_personales['valido']) {
-            wp_send_json_error($datos_personales['error']);
-        }
-
-        // Validar y sanitizar datos de la reserva desde sessionStorage
-        $datos_reserva = $this->validar_datos_reserva();
-        if (!$datos_reserva['valido']) {
-            wp_send_json_error($datos_reserva['error']);
-        }
-
-        // Verificar disponibilidad del servicio
-        $servicio = $this->verificar_disponibilidad($datos_reserva['service_id'], $datos_reserva['total_personas']);
-        if (!$servicio['disponible']) {
-            wp_send_json_error($servicio['error']);
-        }
-
-        // Recalcular precios para verificar que no han cambiado
-        $calculo_precio = $this->recalcular_precio($datos_reserva);
-        if (!$calculo_precio['valido']) {
-            wp_send_json_error($calculo_precio['error']);
-        }
-
-        // Crear la reserva en la base de datos
-        $resultado_reserva = $this->crear_reserva($datos_personales['datos'], $datos_reserva, $calculo_precio['precio']);
-        if (!$resultado_reserva['exito']) {
-            wp_send_json_error($resultado_reserva['error']);
-        }
-
-        // Actualizar plazas disponibles
-        $actualizacion = $this->actualizar_plazas_disponibles($datos_reserva['service_id'], $datos_reserva['total_personas']);
-        if (!$actualizacion['exito']) {
-            // Si falla la actualización, eliminar la reserva creada
-            $this->eliminar_reserva($resultado_reserva['reserva_id']);
-            wp_send_json_error('Error actualizando disponibilidad. Reserva cancelada.');
-        }
-
-        // Enviar respuesta exitosa
-        wp_send_json_success(array(
-            'mensaje' => 'Reserva procesada correctamente',
-            'localizador' => $resultado_reserva['localizador'],
-            'reserva_id' => $resultado_reserva['reserva_id'],
-            'detalles' => array(
-                'fecha' => $datos_reserva['fecha'],
-                'hora' => $datos_reserva['hora_ida'],
-                'personas' => $datos_reserva['total_personas'],
-                'precio_final' => $calculo_precio['precio']['precio_final']
-            )
-        ));
     }
 
     /**
      * Validar datos personales del formulario
      */
     private function validar_datos_personales() {
+        error_log('=== VALIDANDO DATOS PERSONALES ===');
+        
         $nombre = sanitize_text_field($_POST['nombre'] ?? '');
         $apellidos = sanitize_text_field($_POST['apellidos'] ?? '');
         $email = sanitize_email($_POST['email'] ?? '');
         $telefono = sanitize_text_field($_POST['telefono'] ?? '');
+
+        error_log("Datos recibidos - Nombre: '$nombre', Apellidos: '$apellidos', Email: '$email', Teléfono: '$telefono'");
 
         // Validaciones
         if (empty($nombre) || strlen($nombre) < 2) {
@@ -130,18 +194,31 @@ class ReservasProcessor {
      * Validar datos de reserva desde sessionStorage
      */
     private function validar_datos_reserva() {
-        // Los datos deben enviarse desde el frontend
-        $reserva_data = json_decode(stripslashes($_POST['reservation_data'] ?? ''), true);
-
-        if (!$reserva_data) {
-            return array('valido' => false, 'error' => 'Datos de reserva no válidos');
+        error_log('=== VALIDANDO DATOS DE RESERVA ===');
+        
+        // Verificar que tenemos los datos de reserva
+        if (!isset($_POST['reservation_data'])) {
+            return array('valido' => false, 'error' => 'Faltan datos de reserva');
         }
+
+        // Decodificar datos de reserva
+        $reserva_data_json = stripslashes($_POST['reservation_data']);
+        error_log('JSON recibido: ' . $reserva_data_json);
+        
+        $reserva_data = json_decode($reserva_data_json, true);
+
+        if (!$reserva_data || json_last_error() !== JSON_ERROR_NONE) {
+            error_log('ERROR JSON: ' . json_last_error_msg());
+            return array('valido' => false, 'error' => 'Datos de reserva no válidos - JSON corrupto');
+        }
+
+        error_log('Datos de reserva decodificados: ' . print_r($reserva_data, true));
 
         // Validar campos obligatorios
         $campos_requeridos = ['fecha', 'service_id', 'hora_ida', 'adultos', 'residentes', 'ninos_5_12', 'ninos_menores'];
         foreach ($campos_requeridos as $campo) {
             if (!isset($reserva_data[$campo])) {
-                return array('valido' => false, 'error' => "Campo '$campo' faltante");
+                return array('valido' => false, 'error' => "Campo '$campo' faltante en datos de reserva");
             }
         }
 
@@ -152,6 +229,8 @@ class ReservasProcessor {
         $ninos_menores = intval($reserva_data['ninos_menores']);
         $total_personas = $adultos + $residentes + $ninos_5_12; // Los menores de 5 no ocupan plaza
 
+        error_log("Personas calculadas - Adultos: $adultos, Residentes: $residentes, Niños 5-12: $ninos_5_12, Menores: $ninos_menores, Total con plaza: $total_personas");
+
         if ($total_personas <= 0) {
             return array('valido' => false, 'error' => 'Debe haber al menos una persona que ocupe plaza');
         }
@@ -160,7 +239,7 @@ class ReservasProcessor {
             return array('valido' => false, 'error' => 'Debe haber al menos un adulto si hay niños');
         }
 
-        // Agregar total calculado
+        // Agregar totales calculados
         $reserva_data['total_personas'] = $total_personas;
         $reserva_data['total_viajeros'] = $adultos + $residentes + $ninos_5_12 + $ninos_menores;
 
@@ -171,6 +250,9 @@ class ReservasProcessor {
      * Verificar disponibilidad del servicio
      */
     private function verificar_disponibilidad($service_id, $personas_necesarias) {
+        error_log('=== VERIFICANDO DISPONIBILIDAD ===');
+        error_log("Service ID: $service_id, Personas necesarias: $personas_necesarias");
+        
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -183,6 +265,8 @@ class ReservasProcessor {
         if (!$servicio) {
             return array('disponible' => false, 'error' => 'Servicio no encontrado');
         }
+
+        error_log('Servicio encontrado: ' . print_r($servicio, true));
 
         if ($servicio->plazas_disponibles < $personas_necesarias) {
             return array(
@@ -203,9 +287,11 @@ class ReservasProcessor {
     }
 
     /**
-     * Recalcular precio para verificar que coincide
+     * Recalcular precio para verificar
      */
     private function recalcular_precio($datos_reserva) {
+        error_log('=== RECALCULANDO PRECIO ===');
+        
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -271,31 +357,40 @@ class ReservasProcessor {
         $precio_final = $precio_base - $descuento_total;
         if ($precio_final < 0) $precio_final = 0;
 
-        return array(
-            'valido' => true,
-            'precio' => array(
-                'precio_base' => round($precio_base, 2),
-                'descuento_total' => round($descuento_total, 2),
-                'descuento_residentes' => round($descuento_residentes, 2),
-                'descuento_ninos' => round($descuento_ninos, 2),
-                'descuento_grupo' => round($descuento_grupo, 2),
-                'descuento_servicio' => round($descuento_servicio, 2),
-                'precio_final' => round($precio_final, 2),
-                'regla_descuento_aplicada' => $regla_aplicada
-            )
+        $precio_info = array(
+            'precio_base' => round($precio_base, 2),
+            'descuento_total' => round($descuento_total, 2),
+            'descuento_residentes' => round($descuento_residentes, 2),
+            'descuento_ninos' => round($descuento_ninos, 2),
+            'descuento_grupo' => round($descuento_grupo, 2),
+            'descuento_servicio' => round($descuento_servicio, 2),
+            'precio_final' => round($precio_final, 2),
+            'regla_descuento_aplicada' => $regla_aplicada
         );
+
+        error_log('Precio calculado: ' . print_r($precio_info, true));
+
+        return array('valido' => true, 'precio' => $precio_info);
     }
 
     /**
      * Crear reserva en la base de datos
      */
     private function crear_reserva($datos_personales, $datos_reserva, $calculo_precio) {
+        error_log('=== CREANDO RESERVA ===');
+        
         global $wpdb;
 
         $table_reservas = $wpdb->prefix . 'reservas_reservas';
 
+        // Verificar que la tabla existe
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_reservas'") != $table_reservas) {
+            return array('exito' => false, 'error' => 'Tabla de reservas no existe');
+        }
+
         // Generar localizador único
         $localizador = $this->generar_localizador();
+        error_log('Localizador generado: ' . $localizador);
 
         // Preparar datos para insertar
         $reserva_data = array(
@@ -320,15 +415,22 @@ class ReservasProcessor {
             'metodo_pago' => 'simulado'
         );
 
+        error_log('Datos de reserva a insertar: ' . print_r($reserva_data, true));
+
         $resultado = $wpdb->insert($table_reservas, $reserva_data);
 
         if ($resultado === false) {
+            error_log('ERROR DB: ' . $wpdb->last_error);
+            error_log('QUERY: ' . $wpdb->last_query);
             return array('exito' => false, 'error' => 'Error guardando la reserva: ' . $wpdb->last_error);
         }
 
+        $reserva_id = $wpdb->insert_id;
+        error_log('Reserva insertada con ID: ' . $reserva_id);
+
         return array(
             'exito' => true,
-            'reserva_id' => $wpdb->insert_id,
+            'reserva_id' => $reserva_id,
             'localizador' => $localizador
         );
     }
@@ -337,6 +439,9 @@ class ReservasProcessor {
      * Actualizar plazas disponibles del servicio
      */
     private function actualizar_plazas_disponibles($service_id, $personas_ocupadas) {
+        error_log('=== ACTUALIZANDO PLAZAS DISPONIBLES ===');
+        error_log("Service ID: $service_id, Personas: $personas_ocupadas");
+        
         global $wpdb;
 
         $table_servicios = $wpdb->prefix . 'reservas_servicios';
@@ -350,11 +455,16 @@ class ReservasProcessor {
             $personas_ocupadas
         ));
 
+        error_log('Query ejecutada: ' . $wpdb->last_query);
+        error_log('Filas afectadas: ' . $resultado);
+
         if ($resultado === false) {
+            error_log('ERROR actualizando plazas: ' . $wpdb->last_error);
             return array('exito' => false, 'error' => 'Error actualizando plazas disponibles');
         }
 
         if ($resultado === 0) {
+            error_log('ERROR: No hay suficientes plazas disponibles');
             return array('exito' => false, 'error' => 'No hay suficientes plazas disponibles');
         }
 
@@ -365,11 +475,15 @@ class ReservasProcessor {
      * Eliminar reserva (en caso de error)
      */
     private function eliminar_reserva($reserva_id) {
+        error_log('=== ELIMINANDO RESERVA POR ERROR ===');
+        error_log('ID de reserva a eliminar: ' . $reserva_id);
+        
         global $wpdb;
 
         $table_reservas = $wpdb->prefix . 'reservas_reservas';
 
         $wpdb->delete($table_reservas, array('id' => $reserva_id));
+        error_log('Reserva eliminada');
     }
 
     /**
@@ -389,33 +503,5 @@ class ReservasProcessor {
         } while ($exists > 0);
 
         return $localizador;
-    }
-
-    /**
-     * Método estático para obtener reservas por servicio
-     */
-    public static function get_reservas_by_servicio($servicio_id) {
-        global $wpdb;
-
-        $table_reservas = $wpdb->prefix . 'reservas_reservas';
-
-        return $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $table_reservas WHERE servicio_id = %d AND estado != 'cancelada' ORDER BY created_at DESC",
-            $servicio_id
-        ));
-    }
-
-    /**
-     * Método estático para buscar reserva por localizador
-     */
-    public static function get_reserva_by_localizador($localizador) {
-        global $wpdb;
-
-        $table_reservas = $wpdb->prefix . 'reservas_reservas';
-
-        return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_reservas WHERE localizador = %s",
-            $localizador
-        ));
     }
 }

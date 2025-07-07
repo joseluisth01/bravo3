@@ -88,14 +88,18 @@ $table_prefix = 'wp_';
  * @link https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/
  */
 // Añade estas líneas ANTES de la línea "That's all, stop editing!"
-define('WP_DEBUG', true);
-define('WP_DEBUG_LOG', true);
-define('WP_DEBUG_DISPLAY', false);
-define('SCRIPT_DEBUG', true);
+define( 'WP_DEBUG', true );
+define( 'WP_DEBUG_LOG', true );
+define( 'WP_DEBUG_DISPLAY', false ); // Importante: false para AJAX
+@ini_set( 'display_errors', 0 );
 
-// Logs específicos de ACF
-ini_set('log_errors', 1);
-ini_set('error_log', '/var/www/vhosts/dev.tictac-comunicacion.es/httpdocs/bravo/wp-content/debug.log');
+// Para ver errores en AJAX - SOLO PARA DEBUGGING
+define( 'SCRIPT_DEBUG', true );
+
+// Limpiar cualquier output buffer que interfiera con AJAX
+if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+    @ini_set( 'display_errors', 0 );
+}
 
 /* Add any custom values between this line and the "stop editing" line. */
 
